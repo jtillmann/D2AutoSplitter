@@ -381,7 +381,6 @@ Return
         {
             GuiControl SplitManager: , splitImage%A_Index%, %imageNamesForSplitManager%
         }
-        Gui, SplitManager: Show, Center h205, Split Manager
         isSplitManagerOpen := 1
         WinWaitClose, Split Manager
         isSplitManagerOpen := 0
@@ -678,15 +677,19 @@ Return
         FileSelectFile, SelectedFile, 3, %A_WorkingDir%\Split_Files\, Open a file, Text Documents (*.txt; *.doc)
         if (!(SelectedFile == ""))
         {
-            FileRead, splitFileDataString, %SelectedFile%
-            currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
-            SelectedFile := StrSplit(SelectedFile, "\")
-            SelectedFile := SelectedFile[SelectedFile.MaxIndex()]
-            GuiControl Autosplitter:, NameOfLoadedSplits, %SelectedFile%
+			LoadSplitsFile(SelectedFile)
         }
         Gui, Autosplitter: -Disabled
         Gui, Autosplitter: Show,
     Return
+	
+	LoadSplitsFile(SelectedFile) {
+		FileRead, splitFileDataString, %SelectedFile%
+		currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
+		SelectedFile := StrSplit(SelectedFile, "\")
+		SelectedFile := SelectedFile[SelectedFile.MaxIndex()]
+		GuiControl Autosplitter:, NameOfLoadedSplits, %SelectedFile%
+	}
 
     makePixelArrayString(imageName)
     {
@@ -1378,6 +1381,7 @@ Return
             }
             FileDelete, %splitFilePath%
             FileAppend, %stringToSaveToFile%, %splitFilePath%
+			LoadSplitsFile(splitFilePath)
         }
         Gui, SplitManager: -Disabled
         Gui, SplitManager: Show,
