@@ -64,6 +64,7 @@ WinTitle := "LiveSplit"
     global PercCorrectForGui:= 0
     global WhiteCorrectForGui:= 0
     global BlackCorrectForGui:= 0
+    global DPI_Ratio := A_ScreenDPI / 96
 ; ===================================================
 
 ; global declarations for split image maker
@@ -1229,11 +1230,12 @@ Return
 
     updateRect(x1, y1, x2, y2, r=2) 
     {
+        rr := r * DPI_Ratio ; Coordinates and Sizes need to use scaled-to-DPI r
         SetTimer, closeRect, Off
-        Gui, 1:Show, % "NA X" x1-r " Y" y1-r " W" x2-x1+r+r " H" r
-        Gui, 2:Show, % "NA X" x1 " Y" y2 " W" x2-x1+r " H" r
-        Gui, 3:Show, % "NA X" x1-r " Y" y1 " W" r " H" y2-y1+r
-        Gui, 4:Show, % "NA X" x2 " Y" y1 " W" r " H" y2-y1+r
+        Gui, 1:Show, % "NA X" x1-rr " Y" y1-rr " W" (x2-x1+2*rr)/DPI_Ratio " H" r 
+        Gui, 2:Show, % "NA X" x1-rr " Y" y2 " W" (x2-x1+2*rr)/DPI_Ratio " H" r
+        Gui, 3:Show, % "NA X" x1-rr " Y" y1-rr " W" r " H" (y2-y1+rr)/DPI_Ratio
+        Gui, 4:Show, % "NA X" x2 " Y" y1-rr " W" r " H" (y2-y1+rr)/DPI_Ratio
         SetTimer, closeRect, 8000
     }
 
