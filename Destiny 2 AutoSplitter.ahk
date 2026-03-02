@@ -14,6 +14,10 @@ CoordMode, Pixel
 
 WinTitle := "LiveSplit"
 
+WriteLog(text) {
+    ;FileAppend, % A_NowUTC ": " text "`n", logfile.txt
+}
+
 ; check for folders and settings files
     IfNotExist, %A_ScriptDir%\Dependencies
     {
@@ -40,10 +44,12 @@ WinTitle := "LiveSplit"
     }
 ; ===================================================
 
+
 ; global declarations for main autosplitter
+    global SelectedFile
     global currentSplit =
     global currentlyLoadedSplits := []
-    global currentlyLoadedSplitIndex := 1
+    global currentlyLoadedSplitIndex := 999
     global breakLoop := 0
     global bossHpHelper := 0
     global makeWhite := 0
@@ -65,7 +71,9 @@ WinTitle := "LiveSplit"
     global WhiteCorrectForGui:= 0
     global BlackCorrectForGui:= 0
     global DPI_Ratio := A_ScreenDPI / 96
+    global StartOnFirstInput
 ; ===================================================
+
 
 ; global declarations for split image maker
     global realImage
@@ -107,194 +115,205 @@ WinTitle := "LiveSplit"
     global isSplitManagerOpen := 0
 ; ===================================================
 
+
 ; GUI for main autosplitter (includes several declarations)
     FileInstall, 31048.ico, %A_ScriptDir%\31048.ico, 1
     Menu,Tray, Icon, %A_ScriptDir%\31048.ico
-    Gui, Autosplitter: Color, 0x37383B
+    ;Gui, Autosplitter: Color, 0x37383B
+    Gui, Autosplitter: Color, 0x222222
     if (FileExist("backgroundimage.png"))
-        Gui, Autosplitter: Add, Picture, x0 y0 w721 h510, %A_ScriptDir%\backgroundimage.png
+        Gui, Autosplitter: Add, Picture, x0 y0 w721 h520, %A_ScriptDir%\backgroundimage.png
     Gui, Autosplitter: Font, s6 CWhite
-    Gui, Autosplitter: Add, Text, x5 y497 w55 h15 +0x200, Made By A2TC
+    Gui, Autosplitter: Add, Text, x8 y432 w125 h15 +0x200, Made By A2TC - Improved By Scope
     Gui, Autosplitter: Font, s9, Segoe UI
-    Gui, Autosplitter: Add, GroupBox, x8 y0 w169 h282
-    Gui, Autosplitter: Add, GroupBox, x218 y288 w305 h210, Hotkeys
-    Gui, Autosplitter: Add, GroupBox, x530 y288 w177 h210, Controls
+    Gui, Autosplitter: Add, GroupBox, x480 y60 w230 h200
+    Gui, Autosplitter: Add, GroupBox, x480 y270 w230 h170, Hotkeys
 
     tmpVar1 := hotKeySettingsArray[1]
     if (tmpVar1 != "")
         Hotkey, $%tmpVar1%, StartKeyPressed
-    Gui, Autosplitter: Add, Hotkey, x306 y320 w120 h21 vHotKey1, %tmpVar1%
+    Gui, Autosplitter: Add, Hotkey, x570 y290 w130 h21 vHotKey1, %tmpVar1%
     tmpVar1 := hotKeySettingsArray[2]
     if (tmpVar1 != "")
         Hotkey, $%tmpVar1%, ResetAutoSplitter
-    Gui, Autosplitter: Add, Hotkey, x306 y368 w120 h21 vHotKey2, %tmpVar1%
+    Gui, Autosplitter: Add, Hotkey, x570 y320 w130 h21 vHotKey2, %tmpVar1%
     tmpVar1 := hotKeySettingsArray[3]
     if (tmpVar1 != "")
         Hotkey, $%tmpVar1%, SkipSplit
-    Gui, Autosplitter: Add, Hotkey, x306 y464 w120 h21 vHotKey3, %tmpVar1%
+    Gui, Autosplitter: Add, Hotkey, x570 y380 w130 h21 vHotKey3, %tmpVar1%
     tmpVar1 := hotKeySettingsArray[4]
     if (tmpVar1 != "")
         Hotkey, $%tmpVar1%, UndoSplit
-    Gui, Autosplitter: Add, Hotkey, x306 y416 w120 h21 vHotKey4, %tmpVar1%
+    Gui, Autosplitter: Add, Hotkey, x570 y350 w130 h21 vHotKey4, %tmpVar1%
     splitButton := hotKeySettingsArray[1]
     resetButton := hotKeySettingsArray[2]
     skipButton := hotKeySettingsArray[3] 
     undoButton := hotKeySettingsArray[4]
 
-    Gui, Autosplitter: Add, Text, x234 y320 w59 h23 +0x200, Start/Split
-    Gui, Autosplitter: Add, Text, x234 y368 w59 h23 +0x200, Reset
-    Gui, Autosplitter: Add, Text, x234 y464 w59 h23 +0x200, Skip Split
-    Gui, Autosplitter: Add, Text, x234 y416 w59 h23 +0x200, Undo Split
-    Gui, Autosplitter: Add, Button, x442 y320 w58 h23 gSethotkeys, Set
-    Gui, Autosplitter: Add, Button, x442 y368 w58 h23 gSethotkeys, Set
-    Gui, Autosplitter: Add, Button, x442 y416 w58 h23 gSethotkeys, Set
-    Gui, Autosplitter: Add, Button, x442 y464 w58 h23 gSethotkeys, Set
-    Gui, Autosplitter: Add, Button, x546 y432 w145 h56 gStartAutoSplitter, Start AutoSplitter
-    Gui, Autosplitter: Add, Button, x546 y368 w145 h56 gStopOnlyAutoSplitter, Reset AutoSplitter
-    Gui, Autosplitter: Add, Button, x618 y304 w79 h56 gSkipOnlyAutoSplitter, Skip Current`nSplit Image
-    Gui, Autosplitter: Add, Button, x538 y304 w79 h56 gUndoOnlyAutoSplitter, Undo Current`nSplit Image
-    Gui, Autosplitter: Add, Text, x184 y8 w313 h255 +0x200 +Center +Border vtimerText
-    Gui, Autosplitter: Add, Picture, x184 y8 w313 h255 +Border vCurrentSplitImage
-    Gui, Autosplitter: Add, Text, x200 y267 w122 h19 +0x200 vcurrerntlyLookingForText, Currently Looking For:
-    Gui, Autosplitter: Add, Button, x16 y200 w153 h73 gOpenSplitImageMaker, Open Split Image Maker
-    Gui, Autosplitter: Add, Text, x16 y64 w153 h23 +0x200 +Center, Currently Loaded Splits:
-    Gui, Autosplitter: Add, Button, x16 y152 w153 h42 gOpenSplitManager, Edit/Make New Splits
-    Gui, Autosplitter: Add, Text, x16 y88 w153 h23 +0x200 +Center vNameOfLoadedSplits
-    Gui, Autosplitter: Add, Button, x16 y16 w153 h42 gLoadSplitsToUse, Load Splits
-    Gui, Autosplitter: Add, Text, x328 y267 w166 h20 +0x200 vsplitImageNameForGui
-    Gui, Autosplitter: Add, Button, x20 y450 w176 h40 gopenInfoTab, Info and how to use the Autosplitter
 
-    Gui, Autosplitter: Add, GroupBox, x504 y30 w209 h213, Splits
-    Gui, Autosplitter: Add, Text, x512 y70 w193 h16 +0x200, ________________________________________________
-    Gui, Autosplitter: Add, Text, x512 y110 w193 h16 +0x200, ________________________________________________
-    Gui, Autosplitter: Add, Text, x512 y150 w193 h16 +0x200, ________________________________________________
-    Gui, Autosplitter: Add, Text, x512 y190 w193 h16 +0x200, ________________________________________________
-    Gui, Autosplitter: Add, Text, x512 y54 w193 h25 vPrev2
-    Gui, Autosplitter: Add, Text, x512 y94 w193 h25 vPrev, previous split
-    Gui, Autosplitter: Add, Text, x512 y134 w193 h25 vCurr, current split
-    Gui, Autosplitter: Add, Text, x512 y174 w193 h25 vNext, next split
-    Gui, Autosplitter: Add, Text, x512 y214 w193 h25 vNext2
+    Gui, Autosplitter: Add, Button, x10 y10 w120 h30 gSaveSplitFileEmpty, Create New Splits
+    Gui, Autosplitter: Add, Button, x140 y10 w100 h30 gLoadSplitsToUse, Open Splits
+    Gui, Autosplitter: Add, Text, x250 y12 w150 h23 +0x200 vNameOfLoadedSplits
+    Gui, Autosplitter: Add, Button, x450 y10 w100 h30 gOpenSplitManager vsplitImageManagerButton, Edit Splits
+    GuiControl, Autosplitter: Hide, splitImageManagerButton
+    Gui, Autosplitter: Add, Button, x560 y10 w150 h30 gOpenSplitImageMaker, Create Split Image
 
-    Gui, Autosplitter: Add, GroupBox, x8 y288 w200 h210
-    Gui, Autosplitter: Add, Text, x13 y310 w153 h23 +0x200, Current Comparison FPS:
-    Gui, Autosplitter: Add, Text, x150 y310 w53 h23 +0x200 +Center +Border vloopCount, 0
-    Gui, Autosplitter: Add, Text, x10 y340 w196 h23 +0x200 +Center, Current Match Percent
-    Gui, Autosplitter: Add, Text, x79 y364 w58 h23 +0x200 +Center +Border vpCorrectForGui, 0
-    Gui, Autosplitter: Add, Text, x10 y390 w97 h23 +0x200 +Center, `% White Correct
-    Gui, Autosplitter: Add, Text, x109 y390 w97 h23 +0x200 +Center, `% Black Correct
-    Gui, Autosplitter: Add, Text, x29 y415 w59 h23 +0x200 +Center +Border vwCorrectForGui, 0
-    Gui, Autosplitter: Add, Text, x129 y415 w59 h23 +0x200 +Center +Border vbCorrectForGui, 0
+    Gui, Autosplitter: Add, Text, x10 y70 w300 h300 +0x200 +Center +Border vtimerText
+    Gui, Autosplitter: Add, Picture, x10 y70 w300 h300 +Border vCurrentSplitImage
+
+    Gui, Autosplitter: Add, Text, x490 y290 w60 h20 +0x200, Start/Split
+    Gui, Autosplitter: Add, Text, x490 y320 w60 h20 +0x200, Reset
+    Gui, Autosplitter: Add, Text, x490 y350 w60 h20 +0x200, Skip Split
+    Gui, Autosplitter: Add, Text, x490 y380 w60 h20 +0x200, Undo Split
+    Gui, Autosplitter: Add, Button, x640 y410 w60 h20 gSethotkeys, Set
+
+    Gui, Autosplitter: Add, Button, x490 y180 w210 h40 vStartAutoSpitterButton gStartAutoSplitter, Start
+    Gui, Autosplitter: Add, Button, x490 y130 w210 h40 gStopOnlyAutoSplitter, Reset
+    Gui, Autosplitter: Add, Button, x600 y80 w100 h40 gSkipOnlyAutoSplitter, Next >
+    Gui, Autosplitter: Add, Button, x490 y80 w100 h40 gUndoOnlyAutoSplitter,  < Previous
+    Gui, Autosplitter: Add, CheckBox, x490 y227 w17 h24 vStartOnFirstInput
+    Gui, Autosplitter: Add, Text, x510 y230 w150 h20 +0x200 vStartOnFirstInputTitle, Start waits for First Input
+
+    Gui, Autosplitter: Font, s7 cCCCCCC, Segoe UI
+    Gui, Autosplitter: Add, Text, x325 y70 w150 h15, Previous Split
+    Gui, Autosplitter: Add, Text, x325 y130 w150 h15, Current Split
+    Gui, Autosplitter: Add, Text, x325 y170 w150 h15, Current Image
+    Gui, Autosplitter: Add, Text, x325 y235 w150 h15, Next Split
+
+    Gui, Autosplitter: Font, s9 cFFFFFF, Segoe UI
+    Gui, Autosplitter: Add, Text, x325 y85 w150 h25 vPrev
+    Gui, Autosplitter: Add, Text, x325 y145 w150 h25 vCurr
+    Gui, Autosplitter: Add, Text, x325 y185 w150 h25 vsplitImageNameForGui
+    Gui, Autosplitter: Add, Text, x325 y250 w150 h25 vNext
+
+    ;gui, Autosplitter: add, text, x10 y280 w440 0x10  ;Horizontal Line > Etched Gray
+    ;gui, Autosplitter: add, text, x480 y70 h200 0x11  ;Vertical Line > Etched Gray
+
+    Gui, Autosplitter: Font, s7 cCCCCCC, Segoe UI
+    Gui, Autosplitter: Add, Text, x10 y380 w25 h20 +0x200 +Right vloopCount, 0
+    Gui, Autosplitter: Add, Text, x40 y380 w30 h20 +0x200, FPS
+
+    Gui, Autosplitter: Add, Text, x70 y380 w25 h20 +0x200 +Right vpCorrectForGui, 0
+    Gui, Autosplitter: Add, Text, x97 y380 w40 h20 +0x200, `% Match
+
+    Gui, Autosplitter: Add, Text, x150 y380 w25 h20 +0x200 +Right vwCorrectForGui, 0
+    Gui, Autosplitter: Add, Text, x177 y380 w40 h20 +0x200, `% White
+
+    Gui, Autosplitter: Add, Text, x230 y380 w25 h20 +0x200 +Right vbCorrectForGui, 0
+    Gui, Autosplitter: Add, Text, x257 y380 w70 h20 +0x200, `% Black
+
+    Gui, Autosplitter: Font, s9 cFFFFFF, Segoe UI
 
 ; ===================================================
+
 
 ; GUI for split image maker
     Gui, imageMaker: Add, GroupBox, x12 y-1 w140 h540 , Settings
 
-        Gui, imageMaker: Add, Button, x22 y15 w120 h50 gCapture vCapture, Freeze Screen
-        Gui, imageMaker: Add, Button, x22 y15 w120 h50 gUncapture vUncapture +Hidden, Unfreeze Screen
-        tmpVar1 := hotKeySettingsArray[5]
-        if (tmpVar1 != "")
-            Hotkey, $%tmpVar1%, Capture
-        Gui, imageMaker: Add, Hotkey, x27 y70 w110 h20 vCaptureHotkey, %tmpVar1%
-        Gui, imageMaker: Add, Button, x52 y92 w60 h23 gSethotkeys, Set
-        Gui, imageMaker: Add, Button, x22 y115 w120 h50 gPicture, Select Area
-        Gui, imageMaker: Add, Button, x22 y165 w120 h50 gSave, Save Current Image
-        Gui, imageMaker: Add, Button, x22 y480 w120 h50 gOpenHPFinder, Open Boss HP Bar Color Finder
+    Gui, imageMaker: Add, Button, x22 y15 w120 h50 gCapture vCapture, Freeze Screen
+    Gui, imageMaker: Add, Button, x22 y15 w120 h50 gUncapture vUncapture +Hidden, Unfreeze Screen
+    tmpVar1 := hotKeySettingsArray[5]
+    if (tmpVar1 != "")
+        Hotkey, $%tmpVar1%, Capture
+    Gui, imageMaker: Add, Hotkey, x27 y70 w110 h20 vCaptureHotkey, %tmpVar1%
+    Gui, imageMaker: Add, Button, x52 y92 w60 h23 gSethotkeys, Set
+    Gui, imageMaker: Add, Button, x22 y115 w120 h50 gPicture, Select Area
+    Gui, imageMaker: Add, Button, x22 y165 w120 h50 gSave, Save Current Image
+    Gui, imageMaker: Add, Button, x22 y480 w120 h50 gOpenHPFinder, Open Boss HP Bar Color Finder
 
-        Gui, imageMaker: Add, Text, x70 y219 w80 h20 , Top
-        Gui, imageMaker: Add, Text, x63 y242 w38 h15 vTopNum +Border +Center, 0
-        Gui, imageMaker: Add, Button, x21 y239 w21 h20 g10TopDec, -10
-        Gui, imageMaker: Add, Button, x122 y239 w24 h20 g10TopInc, +10
-        Gui, imageMaker: Add, Button, x42 y239 w20 h20 gTopDec, -1
-        Gui, imageMaker: Add, Button, x102 y239 w20 h20 gTopInc, +1
+    Gui, imageMaker: Add, Text, x70 y219 w80 h20 , Top
+    Gui, imageMaker: Add, Text, x63 y242 w38 h15 vTopNum +Border +Center, 0
+    Gui, imageMaker: Add, Button, x21 y239 w21 h20 g10TopDec, -10
+    Gui, imageMaker: Add, Button, x122 y239 w24 h20 g10TopInc, +10
+    Gui, imageMaker: Add, Button, x42 y239 w20 h20 gTopDec, -1
+    Gui, imageMaker: Add, Button, x102 y239 w20 h20 gTopInc, +1
 
-        Gui, imageMaker: Add, Text, x65 y289 w80 h20 , Bottom
-        Gui, imageMaker: Add, Text, x63 y312 w38 h15 vBotNum +Border +Center, 0
-        Gui, imageMaker: Add, Button, x21 y309 w21 h20 g10BotDec, -10
-        Gui, imageMaker: Add, Button, x122 y309 w24 h20 g10BotInc, +10
-        Gui, imageMaker: Add, Button, x42 y309 w20 h20 gBotDec, -1
-        Gui, imageMaker: Add, Button, x102 y309 w20 h20 gBotInc, +1
+    Gui, imageMaker: Add, Text, x65 y289 w80 h20 , Bottom
+    Gui, imageMaker: Add, Text, x63 y312 w38 h15 vBotNum +Border +Center, 0
+    Gui, imageMaker: Add, Button, x21 y309 w21 h20 g10BotDec, -10
+    Gui, imageMaker: Add, Button, x122 y309 w24 h20 g10BotInc, +10
+    Gui, imageMaker: Add, Button, x42 y309 w20 h20 gBotDec, -1
+    Gui, imageMaker: Add, Button, x102 y309 w20 h20 gBotInc, +1
 
-        Gui, imageMaker: Add, Text, x70 y359 w80 h20 , Left
-        Gui, imageMaker: Add, Text, x63 y382 w38 h15 vLeftNum +Border +Center, 0
-        Gui, imageMaker: Add, Button, x21 y379 w21 h20 g10LeftDec, -10
-        Gui, imageMaker: Add, Button, x122 y379 w24 h20 g10LeftInc, +10
-        Gui, imageMaker: Add, Button, x42 y379 w20 h20 gLeftDec, -1
-        Gui, imageMaker: Add, Button, x102 y379 w20 h20 gLeftInc, +1
+    Gui, imageMaker: Add, Text, x70 y359 w80 h20 , Left
+    Gui, imageMaker: Add, Text, x63 y382 w38 h15 vLeftNum +Border +Center, 0
+    Gui, imageMaker: Add, Button, x21 y379 w21 h20 g10LeftDec, -10
+    Gui, imageMaker: Add, Button, x122 y379 w24 h20 g10LeftInc, +10
+    Gui, imageMaker: Add, Button, x42 y379 w20 h20 gLeftDec, -1
+    Gui, imageMaker: Add, Button, x102 y379 w20 h20 gLeftInc, +1
 
-        Gui, imageMaker: Add, Text, x67 y429 w80 h20 , Right
-        Gui, imageMaker: Add, Text, x63 y452 w38 h15 vRightNum +Border +Center, 0
-        Gui, imageMaker: Add, Button, x21 y449 w21 h20 g10RightDec, -10
-        Gui, imageMaker: Add, Button, x122 y449 w24 h20 g10RightInc, +10
-        Gui, imageMaker: Add, Button, x42 y449 w20 h20 gRightDec, -1
-        Gui, imageMaker: Add, Button, x102 y449 w20 h20 gRightInc, +1
+    Gui, imageMaker: Add, Text, x67 y429 w80 h20 , Right
+    Gui, imageMaker: Add, Text, x63 y452 w38 h15 vRightNum +Border +Center, 0
+    Gui, imageMaker: Add, Button, x21 y449 w21 h20 g10RightDec, -10
+    Gui, imageMaker: Add, Button, x122 y449 w24 h20 g10RightInc, +10
+    Gui, imageMaker: Add, Button, x42 y449 w20 h20 gRightDec, -1
+    Gui, imageMaker: Add, Button, x102 y449 w20 h20 gRightInc, +1
 
-        Gui, imageMaker: Add, GroupBox, x162 y-1 w530 h510 , Black and White Pixels
-        Gui, imageMaker: Add, GroupBox, x702 y-1 w530 h510 , Actual Image
-        Gui, imageMaker: Add, Picture, x712 y19 w510 h480 vReal_Pic, %A_ScriptDir%\Dependencies\real_image.png
-        Gui, imageMaker: Add, Picture, x172 y19 w510 h480 vBnW_Pic, %A_ScriptDir%\Dependencies\BnW.png
-        Gui, imageMaker: Add, Text, x270 y520 w100 h20 , Percentage White:
-        Gui, imageMaker: Add, Text, x360 y520 w50 h20 vPW, 0
-        Gui, imageMaker: Add, Text, x520 y520 w100 h20 , Total Pixels:
-        Gui, imageMaker: Add, Text, x580 y520 w50 h20 vTP, 0
-        Gui, imageMaker: Font, S6 , Verdana
-        Gui, imageMaker: Add, Text, x2 y538 w120 h10, Made by A2TC
+    Gui, imageMaker: Add, GroupBox, x162 y-1 w530 h510 , Black and White Pixels
+    Gui, imageMaker: Add, GroupBox, x702 y-1 w530 h510 , Actual Image
+    Gui, imageMaker: Add, Picture, x712 y19 w510 h480 vReal_Pic, %A_ScriptDir%\Dependencies\real_image.png
+    Gui, imageMaker: Add, Picture, x172 y19 w510 h480 vBnW_Pic, %A_ScriptDir%\Dependencies\BnW.png
+    Gui, imageMaker: Add, Text, x270 y520 w100 h20 , Percentage White:
+    Gui, imageMaker: Add, Text, x360 y520 w50 h20 vPW, 0
+    Gui, imageMaker: Add, Text, x520 y520 w100 h20 , Total Pixels:
+    Gui, imageMaker: Add, Text, x580 y520 w150 h20 vTP, 0
+    Gui, imageMaker: Font, S6 , Verdana
+    Gui, imageMaker: Add, Text, x2 y538 w120 h10, Made by A2TC
 
     Gui, HPbarColor: +AlwaysOnTop
-        Gui, HPbarColor: Add, Button, x8 y8 w57 h128 gSaveHPBarColors, Save Colors
-        Gui, HPbarColor: Add, Button, x8 y146 w57 h56 gSetBarLocation, Set Bar Location
-        Gui, HPbarColor: Add, Button, x72 y168 w149 h46 gSetDarkColor, Find Dark Color
-        Gui, HPbarColor: Add, Button, x224 y168 w149 h46 gSetLightColor, Find Light Color
-        Gui, HPbarColor: Add, Text, x72 y137 w149 h28 +0x200 +Center, Dark Color
-        Gui, HPbarColor: Add, Text, x224 y136 w149 h28 +0x200 +Center, Light Color
+    Gui, HPbarColor: Add, Button, x8 y8 w57 h128 gSaveHPBarColors, Save Colors
+    Gui, HPbarColor: Add, Button, x8 y146 w57 h56 gSetBarLocation, Set Bar Location
+    Gui, HPbarColor: Add, Button, x72 y168 w149 h46 gSetDarkColor, Find Dark Color
+    Gui, HPbarColor: Add, Button, x224 y168 w149 h46 gSetLightColor, Find Light Color
+    Gui, HPbarColor: Add, Text, x72 y137 w149 h28 +0x200 +Center, Dark Color
+    Gui, HPbarColor: Add, Text, x224 y136 w149 h28 +0x200 +Center, Light Color
 
-        imageInfoString =
-        FileRead, imageInfoString, %A_ScriptDir%\Split_Images\image_info.txt
+    imageInfoString =
+    FileRead, imageInfoString, %A_ScriptDir%\Split_Images\image_info.txt
 
-        imageDataArray := StrSplit(imageInfoString, "&")
-        HPBarDarkColor := imageDataArray[1]
-        HPBarLightColor := imageDataArray[2]
+    imageDataArray := StrSplit(imageInfoString, "&")
+    HPBarDarkColor := imageDataArray[1]
+    HPBarLightColor := imageDataArray[2]
 
-        pGlobalBitmap := Gdip_CreateBitmap(149, 129)
-        setBitmapColor(pGlobalBitmap, HPBarDarkColor)
-        Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
-        Gui, HPbarColor: Add, Picture, x72 y8 w149 h129 vdarkHPColor, %tmpImage%
-        Gdip_DisposeImage(pGlobalBitmap)
-        pGlobalBitmap := Gdip_CreateBitmap(149, 129)
-        setBitmapColor(pGlobalBitmap, HPBarLightColor)
-        Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
-        Gui, HPbarColor: Add, Picture, x224 y8 w149 h129 vlightHPColor, %tmpImage%
-        Gdip_DisposeImage(pGlobalBitmap)
+    pGlobalBitmap := Gdip_CreateBitmap(149, 129)
+    setBitmapColor(pGlobalBitmap, HPBarDarkColor)
+    Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
+    Gui, HPbarColor: Add, Picture, x72 y8 w149 h129 vdarkHPColor, %tmpImage%
+    Gdip_DisposeImage(pGlobalBitmap)
+    pGlobalBitmap := Gdip_CreateBitmap(149, 129)
+    setBitmapColor(pGlobalBitmap, HPBarLightColor)
+    Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
+    Gui, HPbarColor: Add, Picture, x224 y8 w149 h129 vlightHPColor, %tmpImage%
+    Gdip_DisposeImage(pGlobalBitmap)
 
-    ; Create the "selection rectangle" GUIs (one for each edge).
-        Loop 4 {
-            Gui, %A_Index%: -Caption +ToolWindow +AlwaysOnTop
-            Gui, %A_Index%: Color, Red
-        }
+; Create the "selection rectangle" GUIs (one for each edge).
+    Loop 4 {
+        Gui, %A_Index%: -Caption +ToolWindow +AlwaysOnTop
+        Gui, %A_Index%: Color, Red
+    }
 ; ===================================================
 
 ; GUI for split manager
     Gui, SplitManager: Font, s9, Segoe UI
-    Gui, SplitManager: Add, GroupBox, x8 y8 w129 h194, GroupBox
-    Gui, SplitManager: Add, Button, x24 y32 w97 h41 gLoadSplitFile, Load Splits
-    Gui, SplitManager: Add, Button, x24 y80 w97 h41 gSaveSplitFile, Save Current Splits as
-    Gui, SplitManager: Add, Button, x24 y128 w97 h25 gRemoveSplit, Remove Split
-    Gui, SplitManager: Add, Button, x24 y160 w97 h25 gAddSplit, Add Split
-    Gui, SplitManager: Add, Text, x162 y16 w121 h23 +0x200 +Center, Split Name
-    Gui, SplitManager: Add, Text, x290 y16 w121 h23 +0x200 +Center, Image to Find
-    Gui, SplitManager: Add, Text, x415 y16 w100 h23 +0x200 +Center, Dummy Split
-    Gui, SplitManager: Add, Text, x515 y16 w60 h23 +0x200 +Left, Threshold
-    Gui, SplitManager: Add, Text, x586 y16 w121 h23 +0x200 +Left, Delay (s)
+    Gui, SplitManager: Add, Button, x480 y10 w100 h30 gSaveSplitsAndCloseManager, Save and close
+    Gui, SplitManager: Add, Button, x30 y10 w100 h30 gAddSplit, Add Split
+    Gui, SplitManager: Add, Button, x140 y10 w100 h30 gRemoveSplit, Remove Split
+
+    Gui, SplitManager: Add, Text, x30 y60 w120 h20 +0x200 +Left, Split Name
+    Gui, SplitManager: Add, Text, x180 y60 w120 h20 +0x200 +Left, Image to Find
+    Gui, SplitManager: Add, Text, x350 y60 w70 h23 +0x200 +Left, Dummy
+    Gui, SplitManager: Add, Text, x410 y60 w60 h23 +0x200 +Left, Threshold
+    Gui, SplitManager: Add, Text, x500 y60 w120 h23 +0x200 +Left, Delay (s)
 
     loop 50
     {
-        offset := A_Index*32
-        Gui, SplitManager: Add, Text, % "x" 145 " y" 21+offset " w" 20 " h" 23, %A_Index%.
-        Gui, SplitManager: Add, Edit, % "x" 162 " y" 16+offset " w" 120 " h" 24 " vsplitName"A_Index,
-        Gui, SplitManager: Add, DropDownList, % " x" 290 " y" 16+offset " w" 120 " vsplitImage"A_Index, %imageNamesForSplitManager%
-        Gui, SplitManager: Add, CheckBox, % "x" 458 " y" 16+offset " w" 17 " h" 24 " vsplitDummyOrNot"A_Index
-        Gui, SplitManager: Add, Edit, % "x" 514 " y" 16+offset " w" 57 " h" 24 " number +Center" " vsplitThreshold"A_Index, 0.90
-        Gui, SplitManager: Add, Edit, % "x" 580 " y" 16+offset " w" 57 " h" 24 " number +Center" " vsplitDelay"A_Index, 7
+        offset := A_Index*30
+        Gui, SplitManager: Add, Text, % "x" 10 " y" 61+offset " w" 20 " h" 23, %A_Index%.
+        Gui, SplitManager: Add, Edit, % "x" 30 " y" 56+offset " w" 140 " h" 24 " vsplitName"A_Index,
+        Gui, SplitManager: Add, DropDownList, % " x" 180 " y" 56+offset " w" 160 " vsplitImage"A_Index, %imageNamesForSplitManager%
+        Gui, SplitManager: Add, CheckBox, % "x" 370 " y" 56+offset " w" 17 " h" 24 " vsplitDummyOrNot"A_Index
+        Gui, SplitManager: Add, Edit, % "x" 420 " y" 56+offset " w" 77 " h" 24 " number +Center" " vsplitThreshold"A_Index, 0.90
+        Gui, SplitManager: Add, Edit, % "x" 500 " y" 56+offset " w" 77 " h" 24 " number +Center" " vsplitDelay"A_Index, 7
         GuiControl SplitManager: Hide, splitName%A_Index%
         GuiControl SplitManager: Hide, splitImage%A_Index%
         GuiControl SplitManager: Hide, splitDummyOrNot%A_Index%
@@ -304,14 +323,38 @@ WinTitle := "LiveSplit"
     makeNewSplit(splitManagerIndex+1)
 ; ===================================================
 
-Gui, Autosplitter: Show, w721 h510, Destiny 2 AutoSplitter
+
+        
+
+
+Gui, Autosplitter: Show, w720 h450, Destiny 2 AutoSplitter
+
+~$w::
+~$a::
+~$s::
+~$d::
+~+$w::
+~+$a::
+~+$s::
+~+$d::
+~$Space::
+~$3::
+~$WheelDown::
+~$WheelUp::
+~$e::
+    ;global inputCounter
+    ;inputCounter++
+    ;Gui, Autosplitter: Add, Text, x00 y0 w20 h15 +0x200, %inputCounter%
+    GoSub InputKeyPressed
+
+
 Return
 
 ; main autosplitter functionality
     Sethotkeys:
         Gui, Autosplitter: Submit, NoHide
         Gui, imageMaker: Submit, NoHide
-        
+
         if (Hotkey1 != "")
         {
             if (hotKeySettingsArray[1] != "")
@@ -382,7 +425,22 @@ Return
         {
             GuiControl SplitManager: , splitImage%A_Index%, %imageNamesForSplitManager%
         }
+        Gui, SplitManager: Show, Center h250 w590, Split Manager
         isSplitManagerOpen := 1
+
+        FileRead, splitFileDataString, %SelectedFile%
+        splitFileDataArray := StrSplit(splitFileDataString, "&")
+        for i, splitData in splitFileDataArray
+        {
+            splitDataArray := StrSplit(splitData, ",")
+            tempVar1 := splitDataArray[1]
+            tempVar2 := splitDataArray[2]
+            tempVar3 := splitDataArray[3]
+            tempVar4 := splitDataArray[4]
+            tempVar5 := splitDataArray[5]
+            makeNewSplit(splitManagerIndex, tempVar1, tempVar2, tempVar3, tempVar4, tempVar5)
+        }
+
         WinWaitClose, Split Manager
         isSplitManagerOpen := 0
         Gui, Autosplitter: -Disabled
@@ -403,16 +461,45 @@ Return
         BlackCorrectForGui := 0
     Return
 
+    startOnFirstInputToggle:
+        Gui, Autosplitter: Add, Text, x0 y0 w125 h15 +0x200, %StartOnFirstInput%
+
+
+
+    InputKeyPressed:
+        Gui, Autosplitter: Submit, NoHide
+        WinGetTitle, activeWindow, A
+
+        WriteLog("InputKeyPressed " currentlyLoadedSplitIndex " " StartOnFirstInput " " activeWindow)
+
+        if (StartOnFirstInput && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
+            WriteLog("InputKeyPressed!")
+            Send, {%splitButton%}
+            GoSub StartAutoSplitter
+        }
+        return
+
+
+
     StartKeyPressed:
+        WriteLog("StartKeyPressed " splitButton)
         Send, {%splitButton%}
+
+
+
     StartAutoSplitter:
+        WriteLog("StartAutoSplitter"  StartOnFirstInput " " currentlyLoadedSplitIndex)
         if (currentlyLoadedSplits[1] == "")
         {
             MsgBox, Select a split file first please
             return
         }
+
         global currentlyLoadedSplitIndex := 1
         GUIupdate()
+        GuiControl, AutoSplitter: Hide, StartOnFirstInput
+        GuiControl, AutoSplitter: Hide, StartOnFirstInputTitle
+
         global breakLoop := 0
         global nLoops := 0
         SetTimer, countLoops, 1000
@@ -429,11 +516,11 @@ Return
                     previousSplitWasBossDeath := 1
             }
             currentSplitImageName := currentSplit[2]
-            GuiControl AutoSplitter:, currerntlyLookingForText, Currently Looking For:
+            ;GuiControl AutoSplitter:, currerntlyLookingForText, Currently Looking For:
             GuiControl Autosplitter:, currentSplitImage, %A_ScriptDir%\Dependencies\real_image.png
             GuiControl Autosplitter:, currentSplitImage,
             GuiControl Autosplitter:, currentSplitImage, %A_WorkingDir%\Split_Images\%currentSplitImageName%.png
-            GuiControl Autosplitter: Move, currentSplitImage, x184 y8 w313 h255
+            GuiControl Autosplitter: Move, currentSplitImage, x10 y70 w300 h300
             GuiControl Autosplitter:, splitImageNameForGui, %currentSplitImageName%
 
             imageInfoString =
@@ -480,6 +567,9 @@ Return
         Hotkey, %splitButton%, On
         GoSub, StopOnlyAutoSplitter
     return
+
+
+
 
     doLoop:
         global bossHpHelper
@@ -551,7 +641,7 @@ Return
             timerText := 0
         currentlyLoadedSplitIndex += 1
         waitingForNextSplit := 1 
-        GuiControl AutoSplitter:, currerntlyLookingForText, Image Found
+        ;GuiControl AutoSplitter:, currerntlyLookingForText, Image Found
         global breakLoop := 0
         SetTimer, waitForNextSplit, 100
         loop, 
@@ -618,19 +708,13 @@ Return
 
     ResetAutoSplitter:
         Send, {%resetButton%}
-        global breakLoop := 1
-        global breakLoopLF := 1
-        global currentlyLoadedSplitIndex := 999
-        global bossHpHelper := 0
-        GUIupdate()
-        GuiControl Autosplitter:, splitImageNameForGui,
-        GuiControl AutoSplitter:, CurrentSplitImage,
-        GuiControl AutoSplitter:, timerText, 
-        GoSub, updateCorrectStats
-        GoSub, updateCorrectStats
+        WriteLog("ResetAutoSplitter " currentlyLoadedSplitIndex)
+        GuiControl, , StartAutoSpitterButton, Start
+        GoSub, StopOnlyAutoSplitter
     return 
 
     StopOnlyAutoSplitter:
+        WriteLog("StopOnlyAutoSplitter " currentlyLoadedSplitIndex)
         global breakLoop := 1
         global breakLoopLF := 1
         global currentlyLoadedSplitIndex := 999
@@ -639,6 +723,9 @@ Return
         GuiControl Autosplitter:, splitImageNameForGui,
         GuiControl AutoSplitter:, CurrentSplitImage,
         GuiControl AutoSplitter:, timerText, 
+        GuiControl, Autosplitter: Show, StartOnFirstInput
+        GuiControl, Autosplitter: Show, StartOnFirstInputTitle
+
         GoSub, updateCorrectStats
         GoSub, updateCorrectStats
     Return
@@ -672,25 +759,6 @@ Return
         global currentlyLoadedSplitIndex -= 1
         GUIupdate()
     Return
-
-    LoadSplitsToUse:
-        Gui, Autosplitter: +Disabled
-        FileSelectFile, SelectedFile, 3, %A_WorkingDir%\Split_Files\, Open a file, Text Documents (*.txt; *.doc)
-        if (!(SelectedFile == ""))
-        {
-			LoadSplitsFile(SelectedFile)
-        }
-        Gui, Autosplitter: -Disabled
-        Gui, Autosplitter: Show,
-    Return
-	
-	LoadSplitsFile(SelectedFile) {
-		FileRead, splitFileDataString, %SelectedFile%
-		currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
-		SelectedFile := StrSplit(SelectedFile, "\")
-		SelectedFile := SelectedFile[SelectedFile.MaxIndex()]
-		GuiControl Autosplitter:, NameOfLoadedSplits, %SelectedFile%
-	}
 
     makePixelArrayString(imageName)
     {
@@ -851,11 +919,11 @@ Return
         hNext := tempGuiVar[1]
         tempGuiVar := StrSplit(currentlyLoadedSplits[currentlyLoadedSplitIndex+2], ",")
         hNext2 := tempGuiVar[1]
-        GuiControl AutoSplitter:, Prev2, %hPrev2%
-        GuiControl AutoSplitter:, Prev, Previous: %hPrev%
-        GuiControl AutoSplitter:, Curr, Current: %hCurr%
-        GuiControl AutoSplitter:, Next, Next: %hNext%
-        GuiControl AutoSplitter:, Next2, %hNext2%
+        ;GuiControl AutoSplitter:, Prev2, %hPrev2%
+        GuiControl AutoSplitter:, Prev, %hPrev%
+        GuiControl AutoSplitter:, Curr, %hCurr%
+        GuiControl AutoSplitter:, Next, %hNext%
+        ;GuiControl AutoSplitter:, Next2, %hNext2%
         return
     }
 
@@ -1052,7 +1120,7 @@ Return
         Gui, imageMaker: +Disabled
         if (imageCoords == "0|0|1|1") 
         {
-            MsgBox, It seems you haven't selected an image.
+            MsgBox, It seems you havent selected an image.
             Gui, imageMaker: -Disabled
             Gui, imageMaker: Show,
             Return
@@ -1327,7 +1395,7 @@ Return
         Gui, SplitManager: Show,
     Return
 
-    LoadSplitFile:
+/*    LoadSplitFile:
         Gui, SplitManager: +Disabled
         FileSelectFile, SelectedFile, 3, %A_WorkingDir%\Split_Files\, Open a file, Text Documents (*.txt; *.doc)
         if (!(SelectedFile == ""))
@@ -1349,8 +1417,60 @@ Return
         Gui, SplitManager: -Disabled
         Gui, SplitManager: Show,
     Return
+*/
+    
 
-    SaveSplitFile:
+    LoadSplitsFile(SelectedFile) {
+        FileRead, splitFileDataString, %SelectedFile%
+        
+        currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
+        SelectedFile := StrSplit(SelectedFile, "\")
+        SelectedFile := SelectedFile[SelectedFile.MaxIndex()]
+        GuiControl, Autosplitter: Show, splitImageManagerButton
+        GuiControl Autosplitter:, NameOfLoadedSplits, %SelectedFile%
+    }
+
+
+    LoadSplitsToUse:
+        Gui, Autosplitter: +Disabled
+        FileSelectFile, SelectedFile, 3, %A_WorkingDir%\Split_Files\, Open a file, Text Documents (*.txt; *.doc)
+        if (!(SelectedFile == ""))
+        {
+            LoadSplitsFile(SelectedFile)
+        }
+        
+        Gui, Autosplitter: -Disabled
+        Gui, Autosplitter: Show,
+    Return
+	
+
+    SaveSplitFileEmpty:
+        Gui, AutoSplitter: +Disabled
+        Gui, AutoSplitter: Submit, NoHide
+
+        inputtingSplitFileName:
+        InputBox, tempSplitFileName,, What would you like to name your Splits?
+        if (!ErrorLevel)
+        {
+            tempSplitFileName = %tempSplitFileName%.txt
+            SelectedFile = %A_WorkingDir%\Split_Files\%tempSplitFileName%
+            if (FileExist(SelectedFile))
+            {
+                MsgBox, 4,, A split file with this name already exists.`nWould you like to overwrite it?
+                IfMsgBox No
+                    Goto, inputtingSplitFileName
+            }
+            stringToSaveToFile := "None,None,0,0.9,7"
+            FileDelete, %SelectedFile%
+            FileAppend, %stringToSaveToFile%, %SelectedFile%
+            LoadSplitsFile(SelectedFile)
+        }
+        Gui, AutoSplitter: -Disabled
+        Gui, AutoSplitter: Show,
+    Return
+
+
+/*	SaveSplitFileNew:
         Gui, SplitManager: +Disabled
         Gui, SplitManager: Submit, NoHide
 
@@ -1387,6 +1507,37 @@ Return
         }
         Gui, SplitManager: -Disabled
         Gui, SplitManager: Show,
+	Return
+*/
+	
+
+    SaveSplitsAndCloseManager:
+        Gui, SplitManager: +Disabled
+        Gui, SplitManager: Submit, NoHide
+
+        stringToSaveToFile := ""
+        loop, 
+        {
+            if (splitName%A_Index% == "" || splitName%A_Index% == " ")
+                break
+            cName := splitName%A_Index%
+            cImage := splitImage%A_Index%
+            cDummy := splitDummyOrNot%A_Index%
+            cThresh := splitThreshold%A_Index%
+            cDelay := splitDelay%A_Index%
+            if (A_index > 1)
+                stringToSaveToFile = %stringToSaveToFile%&%cName%,%cImage%,%cDummy%,%cThresh%,%cDelay%
+            Else 
+                stringToSaveToFile = %cName%,%cImage%,%cDummy%,%cThresh%,%cDelay%
+        }
+        FileDelete, %SelectedFile%
+        FileAppend, %stringToSaveToFile%, %SelectedFile%
+        LoadSplitsFile(SelectedFile)
+
+        Gui, SplitManager: Hide
+        Gui, SplitManager: -Disabled
+        Gui, AutoSplitter: -Disabled
+        Gui, AutoSplitter: Show
     Return
 
     clearSplitManager() 
@@ -1424,11 +1575,11 @@ Return
         GuiControl SplitManager:, splitThreshold%splitManagerIndex%, 0.90
         GuiControl SplitManager:, splitDelay%splitManagerIndex%, 7
         splitManagerIndex -= 1
-        offset := splitManagerIndex*32
+        offset := splitManagerIndex*30
         if (isSplitManagerOpen)
         {
             if (splitManagerIndex > 5)
-                Gui, SplitManager: Show, % "h" 45+offset, Split Manager
+                Gui, SplitManager: Show, % "h" 90+offset, Split Manager
             else 
                 Gui, SplitManager: Show,, Split Manager
         }
@@ -1463,11 +1614,11 @@ Return
         thresh := Round(thresh, 2)
         GuiControl SplitManager:, splitThreshold%insertionIndex%, %thresh%
         GuiControl SplitManager:, splitDelay%insertionIndex%, %delay%
-        offset := splitManagerIndex*32
+        offset := splitManagerIndex*30
         if (isSplitManagerOpen)
         {
             if (splitManagerIndex > 5)
-                Gui, SplitManager: Show, % "h" 45+offset, Split Manager
+                Gui, SplitManager: Show, % "h" 90+offset, Split Manager
             else 
                 Gui, SplitManager: Show,, Split Manager
         }
@@ -1516,6 +1667,9 @@ Return
         FileAppend, %imageInfoString%,%A_ScriptDir%\Split_Images\image_info.txt
     }
 ; ===================================================
+
+
+
 
 ~^F7:: ; Ctrl+F7 to toggle transparency
 ToggleScript:
