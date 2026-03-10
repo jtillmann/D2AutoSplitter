@@ -1217,43 +1217,57 @@ findBossThere(imgInfo) {
 ; ===================================================
 
 makePixelArrayString(imageName) {
-    global makex, makey, makeWhite, makeBlack, makeTotal, makew, makeh
-    imageFilePath := A_WorkingDir "\Split_Images\" imageName ".png"
+    global makew, makeh, makeWhite, makeBlack
 
-    if !FileExist(imageFilePath)
+    makeWhite := 0
+    makeBlack := 0
+    pixelString := ""
+
+    ; Bild in den Arbeitsspeicher laden
+    pBitmap := Gdip_CreateBitmapFromFile(A_ScriptDir "\Split_Images\" imageName ".png")
+    if (!pBitmap) {
+        MsgBox("Fehler: Konnte Bild " imageName ".png nicht laden.")
         return ""
+    }
 
-    pBitmap1 := Gdip_CreateBitmapFromFile(imageFilePath)
-    makex := 0, makey := 0
-    makeWhite := 0, makeBlack := 0, makeTotal := 0
-    pixelArrayString := ""
+    ; Breite und Höhe auslesen
+    Gdip_GetImageDimensions(pBitmap, &makew, &makeh)
 
-    Gdip_GetDimensions(pBitmap1, &makew, &makeh) ; v2 nutzt oft Referenzen (&)
+    BitmapData := Buffer(32, 0)
+    Stride := 0, Scan0 := 0
+
+    ; Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
+    Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
 
     loop makeh {
+        y := A_Index - 1
         loop makew {
-            if (makey != 0 || makex != 0) {
-                pixelArrayString .= ","
-            }
+            x := A_Index - 1
 
-            ; Pixel abfragen und Transparenz/Farbe maskieren
-            color := (Gdip_GetPixel(pBitmap1, makex, makey) & 0x00F0F0F0)
+            ; Direkter Speicherzugriff
+            pixelAddress := Scan0 + (y * Stride) + (x * 4)
+            rawColor := NumGet(pixelAddress, "UInt")
+            color := (rawColor & 0x00F0F0F0)
 
+            ; String direkt mit Komma anhängen (ist extrem schnell)
             if (color == 0xF0F0F0) {
+                pixelString .= "1,"
                 makeWhite += 1
-                pixelArrayString .= "1"
             } else {
+                pixelString .= "0,"
                 makeBlack += 1
-                pixelArrayString .= "0"
             }
-            makex += 1
-            makeTotal += 1
         }
-        makex := 0
-        makey += 1
     }
-    Gdip_DisposeImage(pBitmap1)
-    return pixelArrayString
+
+    ; Bild im RAM entsperren und löschen (Wichtig gegen Memory Leaks!)
+    Gdip_UnlockBits(pBitmap, &BitmapData)
+    Gdip_DisposeImage(pBitmap)
+
+    ; Das letzte, überschüssige Komma am Ende des Strings abschneiden
+    pixelString := RTrim(pixelString, ",")
+
+    return pixelString
 }
 
 ; ===================================================
