@@ -834,7 +834,10 @@ SaveSplitsAndCloseManager(*) {
     loop splitManagerIndex {
         ; Werte aus den Arrays der Controls sammeln
         cName := splitNameControls[A_Index].Value
-        cImage := splitImageControls[A_Index].Value
+
+        ; WICHTIGE ÄNDERUNG: .Text statt .Value für Dropdowns in v2!
+        cImage := splitImageControls[A_Index].Text
+
         cDummy := splitDummyControls[A_Index].Value
         cThresh := splitThreshControls[A_Index].Value
         cDelay := splitDelayControls[A_Index].Value
@@ -849,7 +852,7 @@ SaveSplitsAndCloseManager(*) {
     if (SelectedFile != "") {
         try FileDelete(SelectedFile)
         FileAppend(outputString, SelectedFile)
-        LoadSplitsFile(SelectedFile) ; Liste neu laden
+        LoadSplitsFile(SelectedFile) ; Liste im Hauptfenster neu laden
     }
 
     SplitManagerGui.Hide()
