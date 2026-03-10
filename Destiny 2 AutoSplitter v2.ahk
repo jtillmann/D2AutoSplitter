@@ -1758,10 +1758,11 @@ colorUndermouse() {
 }
 
 Save(*) {
-    global imageCoords, totalPixels, realImage
+    global imageCoords, realImage, txtTP
     ImageMakerGui.Opt("+Disabled")
 
-    if (imageCoords == "0|0|1|1") {
+    ; Prüfen, ob überhaupt Koordinaten gezogen wurden
+    if (imageCoords == "0|0|1|1" || imageCoords == "") {
         MsgBox("Es wurde kein Bild ausgewählt.")
         ImageMakerGui.Opt("-Disabled")
         ImageMakerGui.Show()
@@ -1769,15 +1770,58 @@ Save(*) {
     }
 
     ib := InputBox("What would you like to name this image?", "Save Image")
-    if (ib.Result == "Cancel") {
+
+    if (ib.Result == "Cancel" || ib.Result == "Timeout" || ib.Value == "") {
         ImageMakerGui.Opt("-Disabled")
         ImageMakerGui.Show()
         return
     }
     tempImageName := ib.Value
 
-    ; Hier würde die Logik zum Überschreiben der image_info.txt folgen...
-    ; (Identisch zum vorherigen Speichern-Aufbau mit StrSplit und Arrays)
+    ; 1. Das temporäre Bild in den Split_Images Ordner kopieren (1 = überschreiben erlauben)
+    targetImagePath := A_ScriptDir "\Split_Images\" tempImageName ".png"
+    try FileCopy(realImage, targetImagePath, 1)
+
+    ; 2. image_info.txt auslesen
+    infoFilePath := A_ScriptDir "\Split_Images\image_info.txt"
+    imageInfoString := ""
+    try imageInfoString := FileRead(infoFilePath)
+
+    imageDataArray := StrSplit(imageInfoString, "&")
+    newInfoString := ""
+    imageExists := false
+
+    ; Die neue Datenzeile: Name, Koordinaten, Gesamtpixelzahl (aus dem GUI-Element txtTP)
+    newLine := tempImageName "," imageCoords "," txtTP.Value
+
+    ; 3. Überprüfen, ob das Bild schon in der Textdatei steht
+    loop imageDataArray.Length {
+        currentLine := imageDataArray[A_Index]
+        if (currentLine == "")
+            continue
+
+        currentName := StrSplit(currentLine, ",")[1]
+
+        ; Falls der Name schon existiert, ersetzen wir seine Zeile mit den neuen Werten
+        if (currentName == tempImageName) {
+            newInfoString .= (A_Index == 1 ? "" : "&") . newLine
+            imageExists := true
+        } else {
+            ; Ansonsten behalten wir die alte Zeile
+            newInfoString .= (A_Index == 1 ? "" : "&") . currentLine
+        }
+    }
+
+    ; 4. Wenn der Name komplett neu ist, hängen wir ihn einfach ans Ende an
+    if (!imageExists) {
+        newInfoString .= (newInfoString == "" ? "" : "&") . newLine
+    }
+
+    ; 5. Textdatei aktualisieren
+    try FileDelete(infoFilePath)
+    FileAppend(newInfoString, infoFilePath)
+
+    ;MsgBox("Das Bild '" tempImageName "' wurde erfolgreich gespeichert!", "Erfolg")
 
     ImageMakerGui.Opt("-Disabled")
     ImageMakerGui.Show()
