@@ -1403,7 +1403,7 @@ StopOnlyAutoSplitter(*) {
     GUIupdate()
 
     txtImageName.Value := ""
-    picCurrentSplit.Value := ""
+    picCurrentSplit.Visible := false
     txtTimer.Value := ""
 
     chkStartFirst.Visible := true
