@@ -892,6 +892,13 @@ StartAutoSplitter(*) {
         try Hotkey("$" hotKeySettingsArray[1], "Off")
     }
 
+    ; ... (Anfang von StartAutoSplitter bleibt gleich) ...
+    ; Füge imageDataArray ganz oben bei den globals der Funktion hinzu!
+    global currentlyLoadedSplits, currentlyLoadedSplitIndex, breakLoop, nLoops
+    global splitButton, StartOnFirstInput, imageDataArray
+
+    ; ...
+
     loop {
         if (breakLoop)
             break
@@ -899,7 +906,6 @@ StartAutoSplitter(*) {
         txtTimer.Value := ""
         previousSplitWasBossDeath := 0
 
-        ; Aktuellen Split parsen
         currentSplitData := StrSplit(currentlyLoadedSplits[currentlyLoadedSplitIndex], ",")
 
         if (currentlyLoadedSplitIndex > 1) {
@@ -910,16 +916,31 @@ StartAutoSplitter(*) {
 
         currentSplitImageName := currentSplitData[2]
 
-        ; Bildvorschau aktualisieren
-        picCurrentSplit.Value := A_ScriptDir "\Split_Images\" currentSplitImageName ".png"
+        ; 1. FIX: Bildvorschau aktualisieren
+        imgFilePath := A_ScriptDir "\Split_Images\" currentSplitImageName ".png"
+
+        if FileExist(imgFilePath) {
+            ; a) Bild ganz normal laden (OHNE den *w *h String)
+            picCurrentSplit.Value := imgFilePath
+
+            ; b) Das Control sofort auf die Original-Werte festnageln
+            ; (Ersetze 200 und 150 hier wieder durch deine echten Werte aus Abschnitt 5!)
+            picCurrentSplit.Move(, , 300, 300)
+
+            ; c) Wieder sichtbar machen (falls es vorher durch Boss Death versteckt war)
+            picCurrentSplit.Visible := true
+        } else {
+            ; Bei Boss Death etc. unsichtbar machen
+            picCurrentSplit.Visible := false
+        }
         txtImageName.Value := currentSplitImageName
 
-        ; Bildinformationen aus der info.txt suchen
+        ; 2. FIX: Globale Variable imageDataArray nutzen, damit die Boss-Funktionen die Koordinaten finden!
         imageInfoContent := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
-        imageInfoLines := StrSplit(imageInfoContent, "&")
+        imageDataArray := StrSplit(imageInfoContent, "&")
 
         activeImageInfo := ""
-        for i, infoLine in imageInfoLines {
+        for i, infoLine in imageDataArray {
             tempInfo := StrSplit(infoLine, ",")
             if (tempInfo[1] == currentSplitImageName) {
                 activeImageInfo := tempInfo
