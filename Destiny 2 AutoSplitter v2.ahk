@@ -1261,22 +1261,41 @@ makePixelArrayString(imageName) {
 ; ===================================================
 
 colorCheck(pBitmap, pixelArray) {
-    global makeh, makew, makeBlack, makeWhite, currentSplit
+    global makeh, makew, makeBlack, makeWhite
     global PercCorrectForGui, WhiteCorrectForGui, BlackCorrectForGui
 
-    x := 0
-    y := 0
     bCorrect := 0
     wCorrect := 0
     nWrong := 0
+
+    ; 1. Vorbereitung für LockBits
+    ; Wir erstellen einen Puffer für die Metadaten des Bildes und Variablen für Stride (Zeilenbreite) und Scan0 (Startadresse)
+    BitmapData := Buffer(32, 0)
+    Stride := 0
+    Scan0 := 0
+
+    ; 2. Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
+    Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
+
     index := 1
 
+    ; 3. Pixel direkt aus dem Speicher lesen
     loop makeh {
+        y := A_Index - 1
         loop makew {
-            color := (Gdip_GetPixel(pBitmap, x, y) & 0x00F0F0F0)
+            x := A_Index - 1
+
+            ; Die genaue Speicheradresse dieses einen Pixels berechnen:
+            ; Startadresse + (Y-Koordinate * Zeilenbreite) + (X-Koordinate * 4 Bytes pro Pixel)
+            pixelAddress := Scan0 + (y * Stride) + (x * 4)
+
+            ; Den rohen Farbwert auslesen (UInt = 32-Bit Integer)
+            rawColor := NumGet(pixelAddress, "UInt")
+
+            ; Deine Maskierung anwenden (Ignoriert Alpha-Kanal und leichte Farbabweichungen)
+            color := (rawColor & 0x00F0F0F0)
 
             if (color == 0xF0F0F0) {
-                ; Sicherheitsabfrage mit .Has(), da Arrays in v2 strikter sind
                 if (pixelArray.Has(index) && pixelArray[index] == "1") {
                     wCorrect += 1
                 } else {
@@ -1289,14 +1308,14 @@ colorCheck(pBitmap, pixelArray) {
                     nWrong += 1
                 }
             }
-            x += 1
             index += 1
         }
-        x := 0
-        y += 1
     }
 
-    ; Division durch 0 verhindern (Best Practice in v2)
+    ; 4. Bild im RAM wieder entsperren (WICHTIG!)
+    Gdip_UnlockBits(pBitmap, &BitmapData)
+
+    ; --- Restliche Berechnung bleibt exakt gleich ---
     bRatio := (makeBlack > 0) ? (bCorrect / makeBlack) : 1
     wRatio := (makeWhite > 0) ? (wCorrect / makeWhite) : 1
 
