@@ -3,7 +3,7 @@
 findAllColorsBetween(darkColor, lightColor) {
     darkArray := convertToRGB(darkColor)
     lightArray := convertToRGB(lightColor)
-    returnMap := Map() ; Map() ersetzt {}
+    returnMap := Map() ; Map() replaces {}
 
     redDiff := lightArray[1] - darkArray[1] + 1
     greenDiff := lightArray[2] - darkArray[2] + 1
@@ -26,7 +26,7 @@ findAllColorsBetween(darkColor, lightColor) {
 }
 
 convertToHex(arr) {
-    ; v2 Formatierung
+    ; v2 formatting
     return Format("0xFF{:02X}{:02X}{:02X}", arr[1], arr[2], arr[3])
 }
 
@@ -46,31 +46,31 @@ colorCheck(pBitmap, pixelArray) {
     wCorrect := 0
     nWrong := 0
 
-    ; 1. Vorbereitung für LockBits
-    ; Wir erstellen einen Puffer für die Metadaten des Bildes und Variablen für Stride (Zeilenbreite) und Scan0 (Startadresse)
+    ; 1. Preparation for LockBits
+    ; We create a buffer for the metadata of the image and variables for Stride (line width) and Scan0 (starting address)
     BitmapData := Buffer(32, 0)
     Stride := 0
     Scan0 := 0
 
-    ; 2. Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
+    ; 2. Lock image in RAM (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
     Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
 
     index := 1
 
-    ; 3. Pixel direkt aus dem Speicher lesen
+    ; 3. Read pixels directly from memory
     loop makeh {
         y := A_Index - 1
         loop makew {
             x := A_Index - 1
 
-            ; Die genaue Speicheradresse dieses einen Pixels berechnen:
-            ; Startadresse + (Y-Koordinate * Zeilenbreite) + (X-Koordinate * 4 Bytes pro Pixel)
+            ; Calculate exact memory address of this specific pixel:
+            ; Starting address + (Y-coordinate * line width) + (X-coordinate * 4 bytes per pixel)
             pixelAddress := Scan0 + (y * Stride) + (x * 4)
 
-            ; Den rohen Farbwert auslesen (UInt = 32-Bit Integer)
+            ; Read raw color value (UInt = 32-bit integer)
             rawColor := NumGet(pixelAddress, "UInt")
 
-            ; Deine Maskierung anwenden (Ignoriert Alpha-Kanal und leichte Farbabweichungen)
+            ; Apply your masking (ignores alpha channel and slight color variations)
             color := (rawColor & 0x00F0F0F0)
 
             if (color == 0xF0F0F0) {
@@ -90,10 +90,10 @@ colorCheck(pBitmap, pixelArray) {
         }
     }
 
-    ; 4. Bild im RAM wieder entsperren (WICHTIG!)
+    ; 4. Unlock image in RAM again (IMPORTANT!)
     Gdip_UnlockBits(pBitmap, &BitmapData)
 
-    ; --- Restliche Berechnung bleibt exakt gleich ---
+    ; --- Remaining calculation remains exactly the same ---
     bRatio := (makeBlack > 0) ? (bCorrect / makeBlack) : 1
     wRatio := (makeWhite > 0) ? (wCorrect / makeWhite) : 1
 
@@ -130,10 +130,10 @@ bossHPCheck(pBitmap3, hpw, hph) {
     loop hph {
         loop hpw {
             pixelColor := Gdip_GetPixel(pBitmap3, makex, makey)
-            ; In v2 nutzt man .Has() für Maps anstelle von HasKey()
+            ; In v2 we use .Has() for Maps instead of HasKey()
             if (bossHealthBarHashTable.Has(pixelColor)) {
                 isDead := 0
-                break 2 ; Bricht aus beiden Schleifen aus
+                break 2 ; Breaks out of both loops
             }
             makex += 1
         }
@@ -173,7 +173,7 @@ bossHPShowingUp(pBitmap3, hpw, hph) {
 }
 
 ; ===================================================
-; Pixel-Array Erstellung (Wandelt PNG in 0/1 String um)
+; Pixel-Array Creation (Converts PNG to 0/1 string)
 ; ===================================================
 
 makePixelArrayString(imageName) {
@@ -183,20 +183,20 @@ makePixelArrayString(imageName) {
     makeBlack := 0
     pixelString := ""
 
-    ; Bild in den Arbeitsspeicher laden
+    ; Load image into memory
     pBitmap := Gdip_CreateBitmapFromFile(A_ScriptDir "\Split_Images\" imageName ".png")
     if (!pBitmap) {
-        MsgBox("Fehler: Konnte Bild " imageName ".png nicht laden.")
+        MsgBox("Error: Could not load image " imageName ".png.")
         return ""
     }
 
-    ; Breite und Höhe auslesen
+    ; Read width and height
     Gdip_GetImageDimensions(pBitmap, &makew, &makeh)
 
     BitmapData := Buffer(32, 0)
     Stride := 0, Scan0 := 0
 
-    ; Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
+    ; Lock image in RAM (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
     Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
 
     loop makeh {
@@ -204,12 +204,12 @@ makePixelArrayString(imageName) {
         loop makew {
             x := A_Index - 1
 
-            ; Direkter Speicherzugriff
+            ; Direct memory access
             pixelAddress := Scan0 + (y * Stride) + (x * 4)
             rawColor := NumGet(pixelAddress, "UInt")
             color := (rawColor & 0x00F0F0F0)
 
-            ; String direkt mit Komma anhängen (ist extrem schnell)
+            ; Append to string directly with comma (is extremely fast)
             if (color == 0xF0F0F0) {
                 pixelString .= "1,"
                 makeWhite += 1
@@ -220,27 +220,27 @@ makePixelArrayString(imageName) {
         }
     }
 
-    ; Bild im RAM entsperren und löschen (Wichtig gegen Memory Leaks!)
+    ; Unlock and delete image in RAM (Important against memory leaks!)
     Gdip_UnlockBits(pBitmap, &BitmapData)
     Gdip_DisposeImage(pBitmap)
 
-    ; Das letzte, überschüssige Komma am Ende des Strings abschneiden
+    ; Cut off the last, excess comma at the end of the string
     pixelString := RTrim(pixelString, ",")
 
     return pixelString
 }
 ; ===================================================
-; Bild-Such-Funktionen (findNormal, findBossDeath, findBossThere)
+; Image search functions (findNormal, findBossDeath, findBossThere)
 ; ===================================================
 
 findNormal(imgInfo) {
     global makeh, makew, currentSplitPixelArray
     imageCoordinates := imgInfo[2]
 
-    ; Gdip_BitmapFromScreen benötigt den Koordinaten-String
+    ; Gdip_BitmapFromScreen requires the coordinates string
     pBitmap := Gdip_BitmapFromScreen(imageCoordinates)
 
-    ; colorCheck durchführen
+    ; Perform colorCheck
     pCorrect := colorCheck(pBitmap, currentSplitPixelArray)
 
     Gdip_DisposeImage(pBitmap)
@@ -275,6 +275,6 @@ findBossThere(imgInfo) {
     }
 
     pCorrect := Round((bossHpHelper / 6), 2)
-    Gdip_DisposeImage(pBitmap4) ; Fix: war im Original pBitmap
+    Gdip_DisposeImage(pBitmap4) ; Fix: was originally pBitmap
     return pCorrect
 }

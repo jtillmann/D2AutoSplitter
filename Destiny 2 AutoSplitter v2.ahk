@@ -19,8 +19,8 @@ WriteLog(text) {
     FileAppend(A_NowUTC ": " text "`n", "logfile.txt")
 }
 
-; --- Ordner und Einstellungsdateien prüfen ---
-; In v2 werden Funktionen wie DirExist() und DirCreate() verwendet
+; --- Check folders and settings files ---
+; In v2, functions like DirExist() and DirCreate() are used
 if !DirExist(A_ScriptDir "\Dependencies") {
     DirCreate(A_ScriptDir "\Dependencies")
     FileAppend("", A_ScriptDir "\Dependencies\settings.txt")
@@ -35,7 +35,7 @@ if !DirExist(A_ScriptDir "\Split_Images") {
     FileAppend("0x000000&0x000000&0|0|1|1", A_ScriptDir "\Split_Images\image_info.txt")
 }
 
-; --- Hotkeys laden ---
+; --- Load Hotkeys ---
 global hotkeySettingsString := ""
 global hotKeySettingsArray := []
 
@@ -47,9 +47,9 @@ try {
 
 hotKeySettingsArray := StrSplit(hotkeySettingsString, "&")
 
-; Dynamische Variablen-Zuweisung (Hotkey1, Hotkey2...) muss in v2
-; über ein Array oder eine Map gelöst werden, da dynamische Variablennamen
-; wie 'Hotkey%A_Index%' nicht mehr existieren.
+; Dynamic variable assignment (Hotkey1, Hotkey2...) must be handled in v2
+; via an array or a map, as dynamic variable names
+; like 'Hotkey%A_Index%' no longer exist.
 global HotkeysV2 := []
 loop 4 {
     if hotKeySettingsArray.Has(A_Index)
@@ -89,26 +89,26 @@ global spinnerChars := ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 global spinnerIndex := 1
 
 ; ===================================================
-; Globale GUI-Objekte (Vorbereitung für v2 Scope)
+; Global GUI Objects (Preparation for v2 scope)
 ; ===================================================
 global MainGui := ""
 global ImageMakerGui := ""
 global HPbarGui := ""
 global ScreenshotGui := ""
 ; ===================================================
-; Globale Deklarationen für Split Image Maker
+; Global declarations for Split Image Maker
 ; ===================================================
 global realImage := A_ScriptDir "\Dependencies\real_image.png"
 global BnWImage := A_ScriptDir "\Dependencies\BnW.png"
 global scshot := A_ScriptDir "\Dependencies\fullScreenshot.png"
 global tmpImage := A_ScriptDir "\Dependencies\tmp.png"
 
-; GDI+ Initialisierung (v2 Syntax)
-; Wir speichern das Token global, damit wir es beim Beenden sauber schließen können.
+; GDI+ Initialization (v2 syntax)
+; We store the token globally so we can close it properly on exit.
 global pToken := Gdip_Startup()
 
-; Initiales Erstellen von Dummy-Bildern
-; In v2 sind Funktionen wie Gdip_BitmapFromScreen Ausdrücke
+; Initial creation of dummy images
+; In v2, functions like Gdip_BitmapFromScreen are expressions
 pBitmap := Gdip_BitmapFromScreen("0|0|1|1")
 Gdip_SaveBitmapToFile(pBitmap, realImage)
 Gdip_SaveBitmapToFile(pBitmap, BnWImage)
@@ -118,7 +118,7 @@ global x1 := 0, y1 := 0, x2 := 0, y2 := 0
 global w := 0, h := 0, total := 0
 global imageCoords := "0|0|1|1"
 
-; Bild-Informationen laden
+; Load image information
 try {
     imageInfoString := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
 } catch {
@@ -129,8 +129,8 @@ imageDataArray := StrSplit(imageInfoString, "&")
 global HPBarDarkColor := imageDataArray[1]
 global HPBarLightColor := imageDataArray[2]
 
-; Boss Health Bar Colors (Erfordert die Funktion 'findAllColorsBetween')
-global bossHealthBarHashTable := Map() ; In v2 nutzen wir Maps für HashTables
+; Boss Health Bar Colors (Requires function 'findAllColorsBetween')
+global bossHealthBarHashTable := Map() ; In v2 we use Maps for HashTables
 if (imageDataArray.Length >= 2) {
     bossHealthBarHashTable := findAllColorsBetween(imageDataArray[1], imageDataArray[2])
 }
@@ -141,20 +141,20 @@ global isSplitManagerOpen := 0
 ; ===================================================
 
 ; ===================================================
-; GUI für den Haupt-Autosplitter
+; GUI for the main Autosplitter
 ; ===================================================
 
-; Tray Icon setzen
+; Set Tray Icon
 if FileExist(A_ScriptDir "\31048.ico") {
     TraySetIcon(A_ScriptDir "\31048.ico")
 }
 
-; GUI Objekt erstellen
+; Create GUI object
 MainGui := Gui("", "Destiny 2 AutoSplitter")
 MainGui.OnEvent("Close", AutoSplitterGuiClose)
 MainGui.BackColor := "222222"
 
-; Hintergrundbild (falls vorhanden)
+; Background image (if present)
 if FileExist(A_ScriptDir "\backgroundimage.png") {
     MainGui.Add("Picture", "x0 y0 w721 h520", A_ScriptDir "\backgroundimage.png")
 }
@@ -166,8 +166,8 @@ MainGui.SetFont("s9", "Segoe UI")
 MainGui.Add("GroupBox", "x480 y60 w230 h200")
 MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 
-; --- Hotkeys und Zuweisungen ---
-; In v2 speichern wir die Control-Objekte in Variablen, um später darauf zuzugreifen
+; --- Hotkeys and assignments ---
+; In v2 we save the control objects in variables to access them later
 tmpVar1 := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
 if (tmpVar1 != "") {
     try Hotkey("$" tmpVar1, OnStartButtonClick)
@@ -192,18 +192,18 @@ if (tmpVar4 != "") {
 }
 hkControl4 := MainGui.Add("Hotkey", "x570 y350 w130 h21 vHotKey4", tmpVar4)
 
-; --- Buttons und Event-Handler ---
+; --- Buttons and event handlers ---
 MainGui.Add("Button", "x10 y10 w120 h30", "Create New Splits").OnEvent("Click", SaveSplitFileEmpty)
 MainGui.Add("Button", "x140 y10 w100 h30", "Open Splits").OnEvent("Click", LoadSplitsToUse)
 txtLoadedSplits := MainGui.Add("Text", "x250 y12 w150 h23 +0x200", "") ; vNameOfLoadedSplits
 
 btnEditSplits := MainGui.Add("Button", "x450 y10 w100 h30", "Edit Splits")
 btnEditSplits.OnEvent("Click", OpenSplitManager)
-btnEditSplits.Visible := false ; Ersetzt GuiControl, Hide
+btnEditSplits.Visible := false ; Replaces GuiControl, Hide
 
 MainGui.Add("Button", "x560 y10 w150 h30", "Create Split Image").OnEvent("Click", OpenSplitImageMaker)
 
-; --- Status und Anzeige ---
+; --- Status and display ---
 txtTimer := MainGui.Add("Text", "x10 y70 w300 h300 +0x200 +Center +Border", "") ; vtimerText
 picCurrentSplit := MainGui.Add("Picture", "x10 y70 w300 h300 +Border", "") ; vCurrentSplitImage
 
@@ -256,20 +256,20 @@ MainGui.Show("w720 h450")
 btnStart.Focus()
 
 ; ===================================================
-; GUI für Split Image Maker
+; GUI for Split Image Maker
 ; ===================================================
 global ImageMakerGui := Gui("", "Split Image Maker")
 ImageMakerGui.OnEvent("Close", (*) => ImageMakerGui.Hide())
 
 ImageMakerGui.Add("GroupBox", "x12 y-1 w140 h540", "Settings")
 
-; Buttons für Screenshot-Funktionen
+; Buttons for screenshot functions
 btnCapture := ImageMakerGui.Add("Button", "x22 y15 w120 h50", "Freeze Screen")
 btnCapture.OnEvent("Click", Capture)
 btnUncapture := ImageMakerGui.Add("Button", "x22 y15 w120 h50 +Hidden", "Unfreeze Screen")
 btnUncapture.OnEvent("Click", Uncapture)
 
-; Hotkey Steuerung
+; Hotkey control
 tmpVarHK5 := (hotKeySettingsArray.Length >= 5) ? hotKeySettingsArray[5] : ""
 if (tmpVarHK5 != "") {
     try Hotkey("$" tmpVarHK5, Capture)
@@ -281,8 +281,8 @@ ImageMakerGui.Add("Button", "x22 y115 w120 h50", "Select Area").OnEvent("Click",
 ImageMakerGui.Add("Button", "x22 y165 w120 h50", "Save Current Image").OnEvent("Click", Save)
 ImageMakerGui.Add("Button", "x22 y480 w120 h50", "Open Boss HP Bar Color Finder").OnEvent("Click", OpenHPFinder)
 
-; --- Koordinaten Anpassung (Top, Bottom, Left, Right) ---
-; Hilfsfunktion zur Vermeidung des "global" Fehlers
+; --- Coordinate adjustment (Top, Bottom, Left, Right) ---
+; Helper function to avoid the "global" error
 AdjustCoord(coord, delta, *) {
     global x1, y1, x2, y2
 
@@ -296,7 +296,7 @@ AdjustCoord(coord, delta, *) {
         x2 += delta
     }
 
-    ; Aktualisiere die Text-Anzeigen in der GUI
+    ; Update the text displays in the GUI
     txtTopNum.Value := y1
     txtBotNum.Value := y2
     txtLeftNum.Value := x1
@@ -338,7 +338,7 @@ ImageMakerGui.Add("Button", "x122 y449 w24 h20", "+10").OnEvent("Click", AdjustC
 ImageMakerGui.Add("Button", "x42 y449 w20 h20", "-1").OnEvent("Click", AdjustCoord.Bind("x2", -1))
 ImageMakerGui.Add("Button", "x102 y449 w20 h20", "+1").OnEvent("Click", AdjustCoord.Bind("x2", 1))
 
-; Bildanzeigen
+; Image displays
 ImageMakerGui.Add("GroupBox", "x162 y-1 w530 h510", "Black and White Pixels")
 ImageMakerGui.Add("GroupBox", "x702 y-1 w530 h510", "Actual Image")
 picReal := ImageMakerGui.Add("Picture", "x712 y19 w510 h480", realImage)
@@ -348,7 +348,7 @@ txtPW := ImageMakerGui.Add("Text", "x360 y520 w50 h20", "0")
 txtTP := ImageMakerGui.Add("Text", "x580 y520 w150 h20", "0")
 
 ; ===================================================
-; GUI für Boss HP Bar Color Finder
+; GUI for Boss HP Bar Color Finder
 ; ===================================================
 global HPbarGui := Gui("+AlwaysOnTop", "Boss HP Bar Color Finder")
 HPbarGui.OnEvent("Close", (*) => HPbarGui.Hide())
@@ -362,7 +362,7 @@ picDarkHP := HPbarGui.Add("Picture", "x72 y8 w149 h129", tmpImage)
 picLightHP := HPbarGui.Add("Picture", "x224 y8 w149 h129", tmpImage)
 
 ; ===================================================
-; Auswahl-Rechteck GUIs
+; Selection rectangle GUIs
 ; ===================================================
 global RectGuis := []
 loop 4 {
@@ -372,26 +372,26 @@ loop 4 {
 }
 
 ; ===================================================
-; Haupt-GUI anzeigen & Hotkeys
+; Show main GUI & Hotkeys
 ; ===================================================
 MainGui.Show("w720 h450")
 
-; Hotkeys für Spiel-Inputs (w, a, s, d etc.)
-; Diese rufen die Funktion 'OnFirstInputKeyPressed' auf
+; Hotkeys for game inputs (w, a, s, d etc.)
+; These call the function 'OnFirstInputKeyPressed'
 MovementKeys := ["w", "a", "s", "d", "Space", "3", "WheelDown", "WheelUp", "e"]
 for key in MovementKeys {
     Hotkey("~$" . key, (*) => OnFirstInputKeyPressed())
-    Hotkey("~+$" . key, (*) => OnFirstInputKeyPressed()) ; Auch für Shift+Taste
+    Hotkey("~+$" . key, (*) => OnFirstInputKeyPressed()) ; Also for Shift+Key
 }
 
 ; ===================================================
-; Hotkey-Einstellungen speichern und setzen
+; Save and set hotkey settings
 ; ===================================================
 
 Sethotkeys(*) {
     global hotKeySettingsArray, hotkeySettingsString
 
-    ; Werte aus den GUI-Objekten auslesen (v2 nutzt .Value)
+    ; Read values from GUI objects (v2 uses .Value)
     newHKs := [hkControl1.Value, hkControl2.Value, hkControl3.Value, hkControl4.Value, hkCapture.Value]
 
     loop newHKs.Length {
@@ -400,15 +400,15 @@ Sethotkeys(*) {
         oldKey := (hotKeySettingsArray.Has(idx)) ? hotKeySettingsArray[idx] : ""
 
         if (newKey != "") {
-            ; Alten Hotkey deaktivieren, falls vorhanden
+            ; Deactivate old hotkey, if present
             if (oldKey != "") {
                 try Hotkey("$" oldKey, "Off")
             }
 
-            ; Neuen Hotkey setzen
+            ; Set new hotkey
             hotKeySettingsArray[idx] := newKey
 
-            ; Funktion zuweisen basierend auf Index
+            ; Assign function based on index
             callback := (idx = 1) ? OnStartKeyPressed :
                 (idx = 2) ? OnResetKeyPressed :
                     (idx = 3) ? OnSkipKeyPress :
@@ -418,7 +418,7 @@ Sethotkeys(*) {
         }
     }
 
-    ; String für Datei zusammensetzen
+    ; Assemble string for file
     hotkeySettingsString := ""
     for k, v in hotKeySettingsArray {
         hotkeySettingsString .= (k = 1 ? "" : "&") . v
@@ -429,21 +429,21 @@ Sethotkeys(*) {
 }
 
 ; ===================================================
-; Haupt-Logik des AutoSplitters
+; Main logic of the AutoSplitter
 ; ===================================================
 Start(*) {
     global currentlyLoadedSplits, currentlyLoadedSplitIndex, breakLoop, nLoops
     global StartOnFirstInput, imageDataArray
 
     if (currentlyLoadedSplits.Length == 0 || currentlyLoadedSplits[1] == "") {
-        MsgBox("Bitte zuerst eine Split-Datei laden!")
+        MsgBox("Please load a split file first!")
         return
     }
 
     currentlyLoadedSplitIndex := 1
     GUIupdate()
 
-    ; Controls verstecken/zeigen
+    ; Hide/show controls
     chkStartFirst.Visible := false
     txtStartFirstTitle.Visible := false
     txtWaitingFirstInput.Visible := false
@@ -453,10 +453,10 @@ Start(*) {
     breakLoop := 0
     nLoops := 0
 
-    ; Timer starten (v2 nutzt Funktionsreferenzen)
+    ; Start timer (v2 uses function references)
     SetTimer(countLoops, 1000)
 
-    ; Hotkey während des Laufs deaktivieren
+    ; Deactivate hotkey during run
     if (hotKeySettingsArray.Has(1) && hotKeySettingsArray[1] != "") {
         try Hotkey("$" hotKeySettingsArray[1], "Off")
     }
@@ -476,26 +476,26 @@ Start(*) {
 
         currentSplitImageName := currentSplitData[2]
 
-        ; 1. FIX: Bildvorschau aktualisieren
+        ; 1. FIX: Update image preview
         imgFilePath := A_ScriptDir "\Split_Images\" currentSplitImageName ".png"
 
         if FileExist(imgFilePath) {
-            ; a) Bild ganz normal laden (OHNE den *w *h String)
+            ; a) Load image normally (WITHOUT the *w *h string)
             picCurrentSplit.Value := imgFilePath
 
-            ; b) Das Control sofort auf die Original-Werte festnageln
-            ; (Ersetze 200 und 150 hier wieder durch deine echten Werte aus Abschnitt 5!)
+            ; b) Lock the control to original values immediately
+            ; (Replace 200 and 150 here again with your real values from section 5!)
             picCurrentSplit.Move(, , 300, 300)
 
-            ; c) Wieder sichtbar machen (falls es vorher durch Boss Death versteckt war)
+            ; c) Make visible again (if it was previously hidden by Boss Death)
             picCurrentSplit.Visible := true
         } else {
-            ; Bei Boss Death etc. unsichtbar machen
+            ; Hide for Boss Death etc.
             picCurrentSplit.Visible := false
         }
         txtImageName.Value := currentSplitImageName
 
-        ; 2. FIX: Globale Variable imageDataArray nutzen, damit die Boss-Funktionen die Koordinaten finden!
+        ; 2. FIX: Use global variable imageDataArray so boss functions find coordinates!
         imageInfoContent := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
         imageDataArray := StrSplit(imageInfoContent, "&")
 
@@ -509,12 +509,12 @@ Start(*) {
         }
 
         if (currentSplitImageName == "None") {
-            MsgBox("Kein Bild für Split " currentlyLoadedSplitIndex " ausgewählt.")
+            MsgBox("No image selected for split " currentlyLoadedSplitIndex ".")
             OnResetButtonClick()
             return
         }
 
-        ; Suchfunktion bestimmen
+        ; Determine search function
         local funcToUse := "findNormal"
         local pixelArray := []
 
@@ -527,7 +527,7 @@ Start(*) {
             pixelArray := StrSplit(pixelString, ",")
         }
 
-        ; Suche starten
+        ; Start search
         lookingFor(funcToUse, currentSplitData[4], previousSplitWasBossDeath, activeImageInfo, pixelArray)
 
         if (currentlyLoadedSplitIndex > currentlyLoadedSplits.Length || currentlyLoadedSplitIndex < 1) {
@@ -545,7 +545,7 @@ Start(*) {
 OnFirstInputKeyPressed(*) {
     global currentlyLoadedSplitIndex, hotKeySettingsArray, isWaitingForFirstInput
 
-    ; Das aktive Fenster abfragen (v2 Syntax)
+    ; Query active window (v2 syntax)
     activeWindow := WinGetTitle("A")
 
     WriteLog("OnFirstInputKeyPressed " currentlyLoadedSplitIndex " " isWaitingForFirstInput " " activeWindow)
@@ -558,7 +558,7 @@ OnFirstInputKeyPressed(*) {
             Send("{" splitKey "}")
         }
 
-        ; In v2 ersetzen wir 'GoSub StartAutoSplitter' durch einen simplen Funktionsaufruf
+        ; In v2 we replace 'GoSub StartAutoSplitter' with a simple function call
         Start()
     }
 }
@@ -566,17 +566,17 @@ OnFirstInputKeyPressed(*) {
 OnStartButtonClick(*) {
     global isWaitingForFirstInput, chkStartFirst, btnStart, txtWaitingFirstInput, btnReset
 
-    ; Wenn wir bereits warten, passiert beim erneuten Klicken nichts
+    ; If we are already waiting, nothing happens on re-click
     if (isWaitingForFirstInput)
         return
 
-    ; Wenn das Häkchen gesetzt ist, gehen wir in den "Warte-Modus"
+    ; If checkbox is set, we go into "Waiting Mode"
     isWaitingForFirstInput := true
     if (chkStartFirst.Value == 1) {
 
         btnReset.focus()
 
-        ; GUI umschalten
+        ; Toggle GUI
         btnStart.Visible := false
         chkStartFirst.Visible := false
         txtStartFirstTitle.Visible := false
@@ -584,10 +584,10 @@ OnStartButtonClick(*) {
         txtSpinner.Visible := true
         SetTimer(updateSpinner, 100)
 
-        return ; WICHTIG: Hier brechen wir ab! Der echte Start passiert noch nicht.
+        return ; IMPORTANT: We abort here! The real start hasn't happened yet.
     }
 
-    ; Wenn das Häkchen NICHT gesetzt ist, sofort ganz normal starten:
+    ; If checkbox is NOT set, start normally immediately:
     Start()
 }
 
@@ -652,7 +652,7 @@ OnUndoButtonClick(*) {
 Reset() {
     global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
 
-    ; Falls wir im Warte-Modus waren, diesen sofort abbrechen und GUI zurücksetzen
+    ; If we were in waiting mode, abort immediately and reset GUI
     if (isWaitingForFirstInput) {
         isWaitingForFirstInput := false
         txtWaitingFirstInput.Visible := false
@@ -762,12 +762,12 @@ doLoop() {
         return
     }
 
-    ; Dynamischer Funktionsaufruf in v2
-    ; Wir nutzen %findFunc% als Funktionsobjekt oder rufen es per Name auf
+    ; Dynamic function call in v2
+    ; We use %findFunc% as a function object or call it by name
     try {
         pCorrect := %findFunc%(currentSplitImageInfo)
     } catch {
-        return ; Falls die Funktion noch nicht definiert ist
+        return ; In case the function is not yet defined
     }
 
     if (pCorrect >= threshold) {
@@ -787,7 +787,7 @@ doLoop() {
             breakLoop := 1
             SetTimer(doLoop, 0)
             SetTimer(updateCorrectStats, 0)
-            OnUndoKeyPressed() ; Funktionsaufruf statt GoTo
+            OnUndoKeyPressed() ; Function call instead of GoTo
         }
     }
 
@@ -798,17 +798,17 @@ handleSplit(pCorrect) {
     global currentlyLoadedSplitIndex, waitingForNextSplit, timerText, breakLoop
     global currentlyLoadedSplits, hotKeySettingsArray
 
-    ; Aktuelle Daten holen
+    ; Get current data
     currentData := StrSplit(currentlyLoadedSplits[currentlyLoadedSplitIndex], ",")
 
-    ; Wenn kein Dummy-Split (Index 3 ist 0), dann Split-Taste senden
+    ; If not a dummy split (Index 3 is 0), send split key
     if (currentData.Has(3) && currentData[3] == "0") {
         splitKey := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
         if (splitKey != "")
             Send("{" splitKey "}")
     }
 
-    ; Delay berechnen (Index 5 ist Delay in Sekunden)
+    ; Calculate delay (Index 5 is delay in seconds)
     timerText := (currentData.Has(5) ? currentData[5] : 0) * 1000
 
     if (currentData.Has(2) && currentData[2] == "Boss Death")
@@ -820,7 +820,7 @@ handleSplit(pCorrect) {
 
     SetTimer(waitForNextSplit, 100)
 
-    ; Warten auf Timer-Ablauf
+    ; Wait for timer expiration
     loop {
         if (!waitingForNextSplit)
             break
@@ -847,14 +847,14 @@ waitForNextSplit() {
 SaveSplitFileEmpty(*) {
     global SelectedFile
 
-    ; Hauptfenster sperren, während das Dialogfenster offen ist
+    ; Disable main window while dialog is open
     MainGui.Opt("+Disabled")
 
-    ; Wir nutzen einen Loop anstelle des alten "Goto, inputtingSplitFileName"
+    ; Use a loop instead of the old "Goto, inputtingSplitFileName"
     loop {
         ib := InputBox("What would you like to name your Splits?", "Create New Splits")
 
-        ; Wenn der User auf "Abbrechen" klickt oder das Fenster schließt
+        ; If user clicks "Cancel" or window closes
         if (ib.Result == "Cancel" || ib.Result == "Timeout") {
             break
         }
@@ -862,61 +862,61 @@ SaveSplitFileEmpty(*) {
         tempSplitFileName := ib.Value ".txt"
         targetFile := A_WorkingDir "\Split_Files\" tempSplitFileName
 
-        ; Prüfen, ob die Datei schon existiert
+        ; Check if file already exists
         if FileExist(targetFile) {
-            ; MsgBox gibt in v2 direkt den gedrückten Button als String zurück
+            ; MsgBox in v2 returns the pressed button as a string directly
             if (MsgBox("A split file with this name already exists.`nWould you like to overwrite it?", "Warning",
                 "YesNo") == "No") {
-                continue ; Startet den Loop von vorne (neue Eingabe)
+                continue ; Starts loop from the beginning (new input)
             }
         }
 
-        ; Datei anlegen und mit Standardwerten füllen
+        ; Create file and fill with default values
         stringToSaveToFile := "None,None,0,0.9,7"
         try FileDelete(targetFile)
         FileAppend(stringToSaveToFile, targetFile)
 
-        ; Die neue Datei direkt laden
+        ; Load the new file directly
         LoadSplitsFile(targetFile)
-        break ; Schleife beenden, da wir erfolgreich waren
+        break ; End loop because we were successful
     }
 
-    ; Hauptfenster wieder entsperren
+    ; Unlock main window again
     MainGui.Opt("-Disabled")
     MainGui.Show()
 }
 
 ; ===================================================
-; Split Image Maker öffnen
+; Open Split Image Maker
 ; ===================================================
 
 OpenSplitImageMaker(*) {
     global ImageMakerGui, MainGui, ScreenshotGui
 
-    ; Hauptfenster sperren, damit man nicht parallel darin klicken kann
+    ; Lock main window so user can't click in it in parallel
     MainGui.Opt("+Disabled")
 
-    ; Image Maker GUI zentriert und in der richtigen Größe anzeigen
+    ; Show Image Maker GUI centered and at correct size
     ImageMakerGui.Show("Center h550 w1244")
 
-    ; Das Skript pausiert hier, bis das Fenster "Split Image Maker" geschlossen wird
+    ; Script pauses here until "Split Image Maker" window is closed
     WinWaitClose("Split Image Maker")
 
-    ; Hauptfenster wieder freigeben
+    ; Re-enable main window
     MainGui.Opt("-Disabled")
 
-    ; Falls die Screenshot-Oberfläche noch existiert/offen ist, abbrechen (verstecken)
+    ; If screenshot interface still exists/open, cancel (hide)
     if (Type(ScreenshotGui) == "Gui") {
         ScreenshotGui.Hide()
     }
 
-    ; Hauptfenster wieder in den Vordergrund holen
+    ; Bring main window to foreground again
     MainGui.Show()
 }
 
 LoadSplitsToUse(*) {
     global SelectedFile
-    MainGui.Opt("+Disabled") ; Fenster sperren
+    MainGui.Opt("+Disabled") ; Lock window
 
     selFile := FileSelect(3, A_WorkingDir "\Split_Files\", "Open a split file", "Text Documents (*.txt; *.doc)")
 
@@ -935,12 +935,12 @@ LoadSplitsFile(path) {
         currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
         SelectedFile := path
 
-        ; GUI aktualisieren
-        splitName := RegExReplace(path, ".*\\") ; Extrahiert Dateinamen
+        ; Update GUI
+        splitName := RegExReplace(path, ".*\\") ; Extracts filename
         txtLoadedSplits.Value := splitName
         btnEditSplits.Visible := true
     } catch {
-        MsgBox("Fehler beim Laden der Datei.")
+        MsgBox("Error loading file.")
     }
 }
 
@@ -949,13 +949,13 @@ LoadSplitsFile(path) {
 ; ===================================================
 
 ; ===================================================
-; GUI Updates & Split-Steuerung
+; GUI Updates & Split Control
 ; ===================================================
 
 GUIupdate() {
     global currentlyLoadedSplits, currentlyLoadedSplitIndex
 
-    ; Sicherheitsabfragen, um Out-of-Bounds Fehler zu vermeiden
+    ; Safety checks to avoid out-of-bounds errors
     hPrev := (currentlyLoadedSplitIndex > 1 && currentlyLoadedSplits.Has(currentlyLoadedSplitIndex - 1)) ? StrSplit(
         currentlyLoadedSplits[currentlyLoadedSplitIndex - 1], ",")[1] : ""
     hCurr := (currentlyLoadedSplits.Has(currentlyLoadedSplitIndex)) ? StrSplit(currentlyLoadedSplits[
@@ -963,7 +963,7 @@ GUIupdate() {
     hNext := (currentlyLoadedSplits.Has(currentlyLoadedSplitIndex + 1)) ? StrSplit(currentlyLoadedSplits[
         currentlyLoadedSplitIndex + 1], ",")[1] : ""
 
-    ; Objekte aktualisieren
+    ; Update objects
     txtPrev.Value := hPrev
     txtCurr.Value := hCurr
     txtNext.Value := hNext
@@ -972,14 +972,14 @@ GUIupdate() {
 }
 
 ; ===================================================
-; Image Maker: Farben & Koordinaten setzen
+; Image Maker: Set colors & coordinates
 ; ===================================================
 
 SetDarkColor(*) {
     global HPBarDarkColor, tmpImage, pToken
     KeyWait("LButton", "D")
     MouseGetPos(&X, &Y)
-    HPBarDarkColor := PixelGetColor(X, Y) ; In v2 ist das Standardformat RGB
+    HPBarDarkColor := PixelGetColor(X, Y) ; Standard format in v2 is RGB
 
     pGlobalBitmap := Gdip_CreateBitmap(149, 129)
     setBitmapColor(pGlobalBitmap, HPBarDarkColor)
@@ -1043,7 +1043,7 @@ SetBarLocation(*) {
 }
 
 ; ===================================================
-; Screenshot & Auswahl-Rechteck
+; Screenshot & Selection rectangle
 ; ===================================================
 
 Capture(*) {
@@ -1052,7 +1052,7 @@ Capture(*) {
     Gdip_SaveBitmapToFile(pBitmap, scshot)
     Gdip_DisposeImage(pBitmap)
 
-    ; Erstelle eine temporäre GUI für den Screenshot
+    ; Create a temporary GUI for the screenshot
     ScreenshotGui := Gui("-Caption +AlwaysOnTop")
     ScreenshotGui.MarginX := 0
     ScreenshotGui.MarginY := 0
@@ -1075,7 +1075,7 @@ Uncapture(*) {
 
 Picture(*) {
     global x1, y1, x2, y2
-    LetUserSelectRect(&x1, &y1, &x2, &y2) ; Parameter-Übergabe mit & (Referenz)
+    LetUserSelectRect(&x1, &y1, &x2, &y2) ; Parameter passing with & (reference)
     setImages(x1, y1, x2, y2)
 }
 
@@ -1083,10 +1083,10 @@ LetUserSelectRect(&outX1, &outY1, &outX2, &outY2) {
     local xorigin, yorigin
 
     lusr_return(*) {
-        ; Dummy-Funktion, um den Klick abzufangen
+        ; Dummy function to catch the click
     }
 
-    ; Die verschachtelte Timer-Funktion in v2 greift auf die lokalen Variablen zu!
+    ; Nested timer function in v2 accesses local variables!
     lusr_update() {
         local x, y
         MouseGetPos(&x, &y)
@@ -1143,7 +1143,7 @@ closeRect() {
 }
 
 ; ===================================================
-; Bildverarbeitung (Schwarz/Weiß)
+; Image processing (Black/White)
 ; ===================================================
 
 setImages(rx1, ry1, rx2, ry2) {
@@ -1186,7 +1186,7 @@ setImages(rx1, ry1, rx2, ry2) {
     Gdip_SaveBitmapToFile(pBitmap2, BnWImage)
     Gdip_DisposeImage(pBitmap2)
 
-    ; Bilder neu laden (indem man den Wert erneut zuweist)
+    ; Reload images (by re-assigning the value)
     picReal.Value := realImage
     picBnW.Value := BnWImage
 
@@ -1196,7 +1196,7 @@ setImages(rx1, ry1, rx2, ry2) {
 }
 
 ; ===================================================
-; Farb-Utilities
+; Color Utilities
 ; ===================================================
 
 OpenHPFinder(*) {
@@ -1204,11 +1204,11 @@ OpenHPFinder(*) {
     HPbarGui.Show()
     SetTimer(colorUndermouse, 10)
 
-    ; Warten bis Fenster geschlossen wird
+    ; Wait until window is closed
     WinWaitClose("Boss HP Bar Color Finder")
 
     SetTimer(colorUndermouse, 0)
-    ToolTip() ; Versteckt den ToolTip
+    ToolTip() ; Hides the ToolTip
     ImageMakerGui.Opt("-Disabled")
     ImageMakerGui.Show()
 }
@@ -1223,9 +1223,9 @@ Save(*) {
     global imageCoords, realImage, txtTP
     ImageMakerGui.Opt("+Disabled")
 
-    ; Prüfen, ob überhaupt Koordinaten gezogen wurden
+    ; Check if coordinates were even selected
     if (imageCoords == "0|0|1|1" || imageCoords == "") {
-        MsgBox("Es wurde kein Bild ausgewählt.")
+        MsgBox("No image has been selected.")
         ImageMakerGui.Opt("-Disabled")
         ImageMakerGui.Show()
         return
@@ -1240,11 +1240,11 @@ Save(*) {
     }
     tempImageName := ib.Value
 
-    ; 1. Das temporäre Bild in den Split_Images Ordner kopieren (1 = überschreiben erlauben)
+    ; 1. Copy temporary image to Split_Images folder (1 = allow overwrite)
     targetImagePath := A_ScriptDir "\Split_Images\" tempImageName ".png"
     try FileCopy(realImage, targetImagePath, 1)
 
-    ; 2. image_info.txt auslesen
+    ; 2. Read image_info.txt
     infoFilePath := A_ScriptDir "\Split_Images\image_info.txt"
     imageInfoString := ""
     try imageInfoString := FileRead(infoFilePath)
@@ -1253,10 +1253,10 @@ Save(*) {
     newInfoString := ""
     imageExists := false
 
-    ; Die neue Datenzeile: Name, Koordinaten, Gesamtpixelzahl (aus dem GUI-Element txtTP)
+    ; The new data line: Name, coordinates, total pixel count (from GUI element txtTP)
     newLine := tempImageName "," imageCoords "," txtTP.Value
 
-    ; 3. Überprüfen, ob das Bild schon in der Textdatei steht
+    ; 3. Check if image is already in text file
     loop imageDataArray.Length {
         currentLine := imageDataArray[A_Index]
         if (currentLine == "")
@@ -1264,26 +1264,26 @@ Save(*) {
 
         currentName := StrSplit(currentLine, ",")[1]
 
-        ; Falls der Name schon existiert, ersetzen wir seine Zeile mit den neuen Werten
+        ; If name already exists, replace its line with new values
         if (currentName == tempImageName) {
             newInfoString .= (A_Index == 1 ? "" : "&") . newLine
             imageExists := true
         } else {
-            ; Ansonsten behalten wir die alte Zeile
+            ; Otherwise keep old line
             newInfoString .= (A_Index == 1 ? "" : "&") . currentLine
         }
     }
 
-    ; 4. Wenn der Name komplett neu ist, hängen wir ihn einfach ans Ende an
+    ; 4. If name is completely new, append to end
     if (!imageExists) {
         newInfoString .= (newInfoString == "" ? "" : "&") . newLine
     }
 
-    ; 5. Textdatei aktualisieren
+    ; 5. Update text file
     try FileDelete(infoFilePath)
     FileAppend(newInfoString, infoFilePath)
 
-    ;MsgBox("Das Bild '" tempImageName "' wurde erfolgreich gespeichert!", "Erfolg")
+    ;MsgBox("The image '" tempImageName "' was successfully saved!", "Success")
 
     ImageMakerGui.Opt("-Disabled")
     ImageMakerGui.Show()
@@ -1296,7 +1296,7 @@ AutoSplitterGuiClose(*) {
 }
 
 ; ===================================================
-; Allgemeine Hotkeys
+; General Hotkeys
 ; ===================================================
 
 ~^F7:: {
