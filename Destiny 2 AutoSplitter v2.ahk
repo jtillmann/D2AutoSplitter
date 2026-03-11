@@ -46,7 +46,7 @@ if (FileExist(legacySettingsFile) && !FileExist(settingsFile)) {
     try {
         legacyContent := FileRead(legacySettingsFile)
         legacyArray := StrSplit(legacyContent, "&")
-        
+
         ; Map legacy indices to named keys
         IniWrite((legacyArray.Has(1) ? legacyArray[1] : ""), settingsFile, "Hotkeys", "Start")
         IniWrite((legacyArray.Has(2) ? legacyArray[2] : ""), settingsFile, "Hotkeys", "Reset")
@@ -55,7 +55,7 @@ if (FileExist(legacySettingsFile) && !FileExist(settingsFile)) {
         IniWrite((legacyArray.Has(5) ? legacyArray[5] : ""), settingsFile, "Hotkeys", "Capture")
         IniWrite((legacyArray.Has(6) ? legacyArray[6] : ""), settingsFile, "Paths", "LastSplitFile")
         IniWrite((legacyArray.Has(7) ? legacyArray[7] : "0"), settingsFile, "Preferences", "WaitFirstInput")
-        
+
         FileDelete(legacySettingsFile)
     }
 }
@@ -310,7 +310,7 @@ Sethotkeys(*) {
 
 SaveSettings() {
     global settings, chkStartFirst, settingsFile
-    
+
     settings["WaitFirstInput"] := chkStartFirst.Value
 
     IniWrite(settings["StartHotkey"], settingsFile, "Hotkeys", "Start")
@@ -343,7 +343,7 @@ Start(*) {
     btnReset.Focus()
     btnNext.Enabled := true
     btnPrev.Enabled := true
-    
+
     chkStartFirst.Visible := false
     txtStartFirstTitle.Visible := false
     txtWaitingFirstInput.Visible := false
@@ -825,7 +825,7 @@ LoadSplitsFile(path) {
         txtLoadedSplits.Value := splitName
         btnEditSplits.Visible := true
         btnStart.Enabled := true
-        
+
         gbFileBox.Visible := true
         btnUnload.Visible := true
     } catch {
@@ -842,22 +842,22 @@ UnloadSplits(*) {
     currentlyLoadedSplits := []
     SelectedFile := ""
     txtLoadedSplits.Value := ""
-    
+
     ; Hide UI elements
     gbFileBox.Visible := false
     btnUnload.Visible := false
     btnEditSplits.Visible := false
-    
+
     ; Disable control buttons
     btnStart.Enabled := false
     btnReset.Enabled := false
     btnNext.Enabled := false
     btnPrev.Enabled := false
-    
+
     ; Clear persistent setting
     settings["LastSplitFile"] := ""
     SaveSettings()
-    
+
     ; Reset display fields
     txtPrev.Value := ""
     txtCurr.Value := ""
@@ -865,7 +865,7 @@ UnloadSplits(*) {
     txtImageName.Value := ""
     txtTimer.Value := ""
     picCurrentSplit.Visible := false
-    
+
     GUIupdate()
 }
 
