@@ -29,7 +29,7 @@ global btnUncapture := ImageMakerGui.Add("Button", "x22 y15 w120 h50 +Hidden", "
 btnUncapture.OnEvent("Click", Uncapture)
 
 ; Hotkey control
-tmpVarHK5 := (hotKeySettingsArray.Length >= 5) ? hotKeySettingsArray[5] : ""
+tmpVarHK5 := (settingsArray.Length >= 5) ? settingsArray[5] : ""
 if (tmpVarHK5 != "") {
     try Hotkey("$" tmpVarHK5, Capture)
 }
@@ -64,37 +64,39 @@ AdjustCoord(coord, delta, *) {
     setImages(x1, y1, x2, y2)
 }
 
-; Top
-ImageMakerGui.Add("Text", "x70 y219 w80 h20", "Top")
-global txtTopNum := ImageMakerGui.Add("Text", "x63 y242 w38 h15 +Border +Center", "0")
-ImageMakerGui.Add("Button", "x21 y239 w21 h20", "-10").OnEvent("Click", AdjustCoord.Bind("y1", -10))
-ImageMakerGui.Add("Button", "x122 y239 w24 h20", "+10").OnEvent("Click", AdjustCoord.Bind("y1", 10))
-ImageMakerGui.Add("Button", "x42 y239 w20 h20", "-1").OnEvent("Click", AdjustCoord.Bind("y1", -1))
-ImageMakerGui.Add("Button", "x102 y239 w20 h20", "+1").OnEvent("Click", AdjustCoord.Bind("y1", 1))
+; Top & Bottom (Vertical stacks for vertical movement)
+ImageMakerGui.Add("Text", "x15 y215 w60 h15 +Center", "Top")
+ImageMakerGui.Add("Text", "x80 y215 w60 h15 +Center", "Bottom")
 
-; Bottom
-ImageMakerGui.Add("Text", "x70 y289 w80 h20", "Bottom")
-global txtBotNum := ImageMakerGui.Add("Text", "x63 y312 w38 h15 +Border +Center", "0")
-ImageMakerGui.Add("Button", "x21 y309 w21 h20", "-10").OnEvent("Click", AdjustCoord.Bind("y2", -10))
-ImageMakerGui.Add("Button", "x122 y309 w24 h20", "+10").OnEvent("Click", AdjustCoord.Bind("y2", 10))
-ImageMakerGui.Add("Button", "x42 y309 w20 h20", "-1").OnEvent("Click", AdjustCoord.Bind("y2", -1))
-ImageMakerGui.Add("Button", "x102 y309 w20 h20", "+1").OnEvent("Click", AdjustCoord.Bind("y2", 1))
+; Top Controls
+ImageMakerGui.Add("Button", "x33 y230 w24 h20", "▲▲").OnEvent("Click", AdjustCoord.Bind("y1", -10))
+ImageMakerGui.Add("Button", "x33 y250 w24 h20", "▲").OnEvent("Click", AdjustCoord.Bind("y1", -1))
+global txtTopNum := ImageMakerGui.Add("Text", "x26 y272 w38 h15 +Border +Center", "0")
+ImageMakerGui.Add("Button", "x33 y289 w24 h20", "▼").OnEvent("Click", AdjustCoord.Bind("y1", 1))
+ImageMakerGui.Add("Button", "x33 y309 w24 h20", "▼▼").OnEvent("Click", AdjustCoord.Bind("y1", 10))
 
-; Left
-ImageMakerGui.Add("Text", "x70 y359 w80 h20", "Left")
-global txtLeftNum := ImageMakerGui.Add("Text", "x63 y382 w38 h15 +Border +Center", "0")
-ImageMakerGui.Add("Button", "x21 y379 w21 h20", "-10").OnEvent("Click", AdjustCoord.Bind("x1", -10))
-ImageMakerGui.Add("Button", "x122 y379 w24 h20", "+10").OnEvent("Click", AdjustCoord.Bind("x1", 10))
-ImageMakerGui.Add("Button", "x42 y379 w20 h20", "-1").OnEvent("Click", AdjustCoord.Bind("x1", -1))
-ImageMakerGui.Add("Button", "x102 y379 w20 h20", "+1").OnEvent("Click", AdjustCoord.Bind("x1", 1))
+; Bottom Controls
+ImageMakerGui.Add("Button", "x98 y230 w24 h20", "▲▲").OnEvent("Click", AdjustCoord.Bind("y2", -10))
+ImageMakerGui.Add("Button", "x98 y250 w24 h20", "▲").OnEvent("Click", AdjustCoord.Bind("y2", -1))
+global txtBotNum := ImageMakerGui.Add("Text", "x91 y272 w38 h15 +Border +Center", "0")
+ImageMakerGui.Add("Button", "x98 y289 w24 h20", "▼").OnEvent("Click", AdjustCoord.Bind("y2", 1))
+ImageMakerGui.Add("Button", "x98 y309 w24 h20", "▼▼").OnEvent("Click", AdjustCoord.Bind("y2", 10))
 
-; Right
-ImageMakerGui.Add("Text", "x67 y429 w80 h20", "Right")
-global txtRightNum := ImageMakerGui.Add("Text", "x63 y452 w38 h15 +Border +Center", "0")
-ImageMakerGui.Add("Button", "x21 y449 w21 h20", "-10").OnEvent("Click", AdjustCoord.Bind("x2", -10))
-ImageMakerGui.Add("Button", "x122 y449 w24 h20", "+10").OnEvent("Click", AdjustCoord.Bind("x2", 10))
-ImageMakerGui.Add("Button", "x42 y449 w20 h20", "-1").OnEvent("Click", AdjustCoord.Bind("x2", -1))
-ImageMakerGui.Add("Button", "x102 y449 w20 h20", "+1").OnEvent("Click", AdjustCoord.Bind("x2", 1))
+; Left (Horizontal row for horizontal movement)
+ImageMakerGui.Add("Text", "x12 y345 w140 h15 +Center", "Left Edge")
+ImageMakerGui.Add("Button", "x17 y362 w24 h20", "◀◀").OnEvent("Click", AdjustCoord.Bind("x1", -10))
+ImageMakerGui.Add("Button", "x41 y362 w20 h20", "◀").OnEvent("Click", AdjustCoord.Bind("x1", -1))
+global txtLeftNum := ImageMakerGui.Add("Text", "x63 y364 w38 h15 +Border +Center", "0")
+ImageMakerGui.Add("Button", "x103 y362 w20 h20", "▶").OnEvent("Click", AdjustCoord.Bind("x1", 1))
+ImageMakerGui.Add("Button", "x123 y362 w24 h20", "▶▶").OnEvent("Click", AdjustCoord.Bind("x1", 10))
+
+; Right (Horizontal row for horizontal movement)
+ImageMakerGui.Add("Text", "x12 y395 w140 h15 +Center", "Right Edge")
+ImageMakerGui.Add("Button", "x17 y412 w24 h20", "◀◀").OnEvent("Click", AdjustCoord.Bind("x2", -10))
+ImageMakerGui.Add("Button", "x41 y412 w20 h20", "◀").OnEvent("Click", AdjustCoord.Bind("x2", -1))
+global txtRightNum := ImageMakerGui.Add("Text", "x63 y414 w38 h15 +Border +Center", "0")
+ImageMakerGui.Add("Button", "x103 y412 w20 h20", "▶").OnEvent("Click", AdjustCoord.Bind("x2", 1))
+ImageMakerGui.Add("Button", "x123 y412 w24 h20", "▶▶").OnEvent("Click", AdjustCoord.Bind("x2", 10))
 
 ; Image displays
 ImageMakerGui.Add("GroupBox", "x162 y-1 w530 h510", "Black and White Pixels")
