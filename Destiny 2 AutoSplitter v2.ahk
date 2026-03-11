@@ -247,46 +247,65 @@ MainGui.Add("Text", "x257 y380 w70 h20 +0x200", "% Black")
 MainGui.Show("w720 h450")
 
 ; ===================================================
-; GUI für Split Manager (MUSS im Auto-Execute-Bereich stehen!)
+; 6. Split Manager GUI Aufbau (Dynamisches ListView)
 ; ===================================================
-global SplitManagerGui := Gui("", "Split Manager")
-SplitManagerGui.SetFont("s9", "Segoe UI")
-SplitManagerGui.OnEvent("Close", (*) => SplitManagerGui.Hide())
+global imgChoices := ["None", "Boss Death", "Boss Healthbar"]
+global SplitManagerGui := Gui("+AlwaysOnTop", "Split Manager")
+SplitManagerGui.OnEvent("Close", CloseSplitManager)
 
-SplitManagerGui.Add("Button", "x480 y10 w100 h30", "Save and close").OnEvent("Click", SaveSplitsAndCloseManager)
-SplitManagerGui.Add("Button", "x30 y10 w100 h30", "Add Split").OnEvent("Click", BtnAddSplitClick)
-SplitManagerGui.Add("Button", "x140 y10 w100 h30", "Remove Split").OnEvent("Click", BtnRemoveSplitClick)
+; 1. Das ListView (Höhe von 250 auf 375 erhöht)
+global lvSplits := SplitManagerGui.Add("ListView", "x10 y10 w500 h375 -Multi +Grid", ["Split Name", "Image", "Dummy",
+    "Threshold", "Delay"])
+lvSplits.OnEvent("ItemSelect", OnSplitSelect)
 
-SplitManagerGui.Add("Text", "x30 y60 w120 h20 +0x200 +Left", "Split Name")
-SplitManagerGui.Add("Text", "x180 y60 w120 h20 +0x200 +Left", "Image to Find")
-SplitManagerGui.Add("Text", "x350 y60 w70 h23 +0x200 +Left", "Dummy")
-SplitManagerGui.Add("Text", "x410 y60 w60 h23 +0x200 +Left", "Threshold")
-SplitManagerGui.Add("Text", "x500 y60 w120 h23 +0x200 +Left", "Delay (s)")
+; NACHHER (Optimal ausgenutzt für w500):
+lvSplits.ModifyCol(1, 160) ; Split Name (bekommt am meisten Platz)
+lvSplits.ModifyCol(2, 145) ; Image (für längere Dateinamen)
+lvSplits.ModifyCol(3, 50)  ; Dummy (braucht nur Platz für 0 oder 1)
+lvSplits.ModifyCol(4, 65)  ; Threshold
+lvSplits.ModifyCol(5, 60)  ; Delay
 
-; WICHTIG: Hier initialisieren wir die Arrays einmalig als leer
-global splitNameControls := []
-global splitImageControls := []
-global splitDummyControls := []
-global splitThreshControls := []
-global splitDelayControls := []
+; 2. Globale Variable für den aktuellen Modus ("Edit" oder "Add")
+global splitEditMode := ""
 
-imgChoices := ["None", "Boss Healthbar", "Boss Death"]
+; 3. Haupt-Buttons (Immer sichtbar, Y-Achse um +125 nach unten verschoben auf 395)
+SplitManagerGui.Add("Button", "x10 y395 w150 h30", "Add New Split").OnEvent("Click", BtnShowAddArea)
+SplitManagerGui.Add("Button", "x360 y395 w150 h30", "Save to File && Close").OnEvent("Click", SaveSplitsAndCloseManager
+)
 
-; WICHTIG: Diese Schleife MUSS durchlaufen, um die Arrays mit 50 Elementen zu füllen
-loop 50 {
-    offset := A_Index * 30
-    SplitManagerGui.Add("Text", "x10 y" (61 + offset) " w20 h23", A_Index ".")
+; 4. Die Eingabefelder (Standardmäßig versteckt! Y-Achsen um +125 nach unten verschoben)
+global lblSplitName := SplitManagerGui.Add("Text", "x10 y435 w100 Hidden", "Name:")
+global edSplitName := SplitManagerGui.Add("Edit", "x10 y450 w120 Hidden", "")
 
-    splitNameControls.Push(SplitManagerGui.Add("Edit", "x30 y" (56 + offset) " w140 h24 +Hidden"))
-    splitImageControls.Push(SplitManagerGui.Add("DropDownList", "x180 y" (56 + offset) " w160 +Hidden", imgChoices))
-    splitDummyControls.Push(SplitManagerGui.Add("CheckBox", "x370 y" (56 + offset) " w17 h24 +Hidden"))
-    splitThreshControls.Push(SplitManagerGui.Add("Edit", "x420 y" (56 + offset) " w77 h24 number +Center +Hidden",
-    "0.90"))
-    splitDelayControls.Push(SplitManagerGui.Add("Edit", "x500 y" (56 + offset) " w77 h24 number +Center +Hidden", "7"))
-}
+global lblSplitImage := SplitManagerGui.Add("Text", "x140 y435 w100 Hidden", "Image:")
+global ddlSplitImage := SplitManagerGui.Add("DropDownList", "x140 y450 w120 Choose1 Hidden", imgChoices)
 
-; Initialisiert den ersten Eintrag (funktioniert jetzt, da Array nicht mehr leer ist)
-makeNewSplit(1)
+global chkSplitDummy := SplitManagerGui.Add("CheckBox", "x275 y450 w60 Hidden", "Dummy")
+
+global lblSplitThresh := SplitManagerGui.Add("Text", "x345 y435 w60 Hidden", "Threshold:")
+global edSplitThresh := SplitManagerGui.Add("Edit", "x345 y450 w60 Hidden", "0.95")
+
+global lblSplitDelay := SplitManagerGui.Add("Text", "x415 y435 w60 Hidden", "Delay:")
+global edSplitDelay := SplitManagerGui.Add("Edit", "x415 y450 w60 Hidden", "0")
+
+; 5. Die kontextbezogenen Aktions-Buttons (Versteckt! Y-Achse auf 490)
+global btnSaveEdit := SplitManagerGui.Add("Button", "x10 y490 w60 h30 Hidden", "Save")
+btnSaveEdit.OnEvent("Click", BtnSaveAction)
+
+global btnSaveAsNew := SplitManagerGui.Add("Button", "x75 y490 w90 h30 Hidden", "Save As New")
+btnSaveAsNew.OnEvent("Click", BtnSaveAsNewAction)
+
+global btnDeleteEdit := SplitManagerGui.Add("Button", "x170 y490 w60 h30 Hidden", "Delete")
+btnDeleteEdit.OnEvent("Click", BtnDeleteAction)
+
+global btnUpEdit := SplitManagerGui.Add("Button", "x235 y490 w40 h30 Hidden", "Up")
+btnUpEdit.OnEvent("Click", BtnUpAction)
+
+global btnDownEdit := SplitManagerGui.Add("Button", "x280 y490 w50 h30 Hidden", "Down")
+btnDownEdit.OnEvent("Click", BtnDownAction)
+
+global btnCancelEdit := SplitManagerGui.Add("Button", "x450 y490 w60 h30 Hidden", "Cancel")
+btnCancelEdit.OnEvent("Click", BtnCancelAction)
 
 ; ===================================================
 ; GUI für Split Image Maker
@@ -418,114 +437,6 @@ for key in MovementKeys {
 }
 
 ; ===================================================
-; Funktionen für den Split Manager
-; ===================================================
-
-; Erstellt eine neue Zeile im Split Manager
-; ===================================================
-; Korrigierte Split Manager Funktionen
-; ===================================================
-
-makeNewSplit(insertionIndex, name := "", image := "None", dummy := 0, thresh := 0.90, delay := 7) {
-    ; HIER ist die wichtige Änderung: Alle Arrays müssen als global deklariert werden!
-    global splitManagerIndex, isSplitManagerOpen, SplitManagerGui
-    global splitNameControls, splitImageControls, splitDummyControls, splitThreshControls, splitDelayControls
-
-    splitManagerIndex += 1
-
-    ; Controls sichtbar machen
-    splitNameControls[splitManagerIndex].Visible := true
-    splitImageControls[splitManagerIndex].Visible := true
-    splitDummyControls[splitManagerIndex].Visible := true
-    splitThreshControls[splitManagerIndex].Visible := true
-    splitDelayControls[splitManagerIndex].Visible := true
-
-    ; Falls wir in der Mitte einfügen, müssen wir die Werte nach unten schieben
-    ; Falls wir in der Mitte einfügen, müssen wir die Werte nach unten schieben
-    difference := splitManagerIndex - insertionIndex
-    if (difference > 0) {
-        loop difference {
-            curr := splitManagerIndex - A_Index + 1
-            prev := splitManagerIndex - A_Index
-            splitNameControls[curr].Value := splitNameControls[prev].Value
-
-            ; Dropdown: Wir lesen den .Text des vorherigen und setzen ihn mit .Choose()
-            try splitImageControls[curr].Choose(splitImageControls[prev].Text)
-
-            splitDummyControls[curr].Value := splitDummyControls[prev].Value
-            splitThreshControls[curr].Value := splitThreshControls[prev].Value
-            splitDelayControls[curr].Value := splitDelayControls[prev].Value
-        }
-    }
-
-    ; Neuen Wert setzen
-    splitNameControls[insertionIndex].Value := name
-
-    ; Dropdown: Den String sicher setzen
-    try splitImageControls[insertionIndex].Choose(image)
-
-    splitDummyControls[insertionIndex].Value := dummy
-    splitThreshControls[insertionIndex].Value := Round(thresh, 2)
-    splitDelayControls[insertionIndex].Value := delay
-
-    ; GUI Höhe anpassen
-    if (isSplitManagerOpen) {
-        offset := splitManagerIndex * 30
-        newH := (splitManagerIndex > 5) ? (90 + offset) : 250
-        SplitManagerGui.Show("h" newH)
-    }
-}
-
-removeSplit(removalIndex) {
-    ; Auch hier alle Arrays als global deklarieren
-    global splitManagerIndex, isSplitManagerOpen, SplitManagerGui
-    global splitNameControls, splitImageControls, splitDummyControls, splitThreshControls, splitDelayControls
-
-    if (splitManagerIndex <= 0)
-        return
-
-    ; Controls der letzten Zeile verstecken
-    splitNameControls[splitManagerIndex].Visible := false
-    splitImageControls[splitManagerIndex].Visible := false
-    splitDummyControls[splitManagerIndex].Visible := false
-    splitThreshControls[splitManagerIndex].Visible := false
-    splitDelayControls[splitManagerIndex].Visible := false
-
-    ; Werte nach oben rücken
-    ; Werte nach oben rücken
-    difference := splitManagerIndex - removalIndex
-    loop difference {
-        curr := removalIndex + A_Index - 1
-        next := removalIndex + A_Index
-        splitNameControls[curr].Value := splitNameControls[next].Value
-
-        ; Dropdown: Mit .Text lesen und mit .Choose() setzen
-        try splitImageControls[curr].Choose(splitImageControls[next].Text)
-
-        splitDummyControls[curr].Value := splitDummyControls[next].Value
-        splitThreshControls[curr].Value := splitThreshControls[next].Value
-        splitDelayControls[curr].Value := splitDelayControls[next].Value
-    }
-
-    splitManagerIndex -= 1
-
-    if (isSplitManagerOpen) {
-        offset := splitManagerIndex * 30
-        newH := (splitManagerIndex > 5) ? (90 + offset) : 250
-        SplitManagerGui.Show("h" newH)
-    }
-}
-
-; Leert den Split Manager komplett
-clearSplitManager() {
-    global splitManagerIndex
-    loop splitManagerIndex {
-        removeSplit(splitManagerIndex)
-    }
-    makeNewSplit(1)
-}
-
-; ===================================================
 ; Hotkey-Einstellungen speichern und setzen
 ; ===================================================
 
@@ -620,65 +531,206 @@ SaveSplitFileEmpty(*) {
 ; ===================================================
 
 OpenSplitManager(*) {
-    global isSplitManagerOpen, SelectedFile, splitManagerIndex
+    global SplitManagerGui, MainGui, lvSplits, ddlSplitImage, SelectedFile
+    ; ==========================================================
+    ; NEU: Den aktuellen Run sofort stoppen und zurücksetzen!
+    ; (Falls deine Funktion z.B. BtnResetClick heißt, ändere das hier)
+    ; ==========================================================
+    try StopOnlyAutoSplitter()
 
-    ; Hauptfenster sperren
     MainGui.Opt("+Disabled")
 
-    ; Manager leeren und Dateileichen entfernen
-    clearSplitManager()
-    checkForDeletedImages()
+    ; 1. Dropdown-Liste mit frischen Bildern füllen
+    frischeBilder := ["None", "Boss Death", "Boss Healthbar"]
+    infoPfad := A_ScriptDir "\Split_Images\image_info.txt"
 
-    ; Array für Dropdown-Liste aufbauen
-    imageNamesArray := ["None", "Boss Healthbar", "Boss Death"]
-
-    try {
-        imageInfoString := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
-        imageDataArray := StrSplit(imageInfoString, "&")
-
-        ; Ab Index 4 stehen in der Datei die benutzerdefinierten Bilder
-        if (imageDataArray.Length >= 4) {
-            loop (imageDataArray.Length - 3) {
-                tempLine := imageDataArray[A_Index + 3]
-                tempName := StrSplit(tempLine, ",")[1]
-                imageNamesArray.Push(tempName)
-            }
+    if FileExist(infoPfad) {
+        infoText := FileRead(infoPfad)
+        loop parse, infoText, "&" {
+            if (A_LoopField == "")
+                continue
+            bildName := StrSplit(A_LoopField, ",")[1]
+            frischeBilder.Push(bildName)
         }
     }
 
-    ; Aktualisiere die 50 Dropdown-Listen im Split Manager
-    loop 50 {
-        splitImageControls[A_Index].Delete()         ; Löscht alte Dropdown-Einträge
-        splitImageControls[A_Index].Add(imageNamesArray) ; Fügt aktuelles Array hinzu
-        splitImageControls[A_Index].Choose(1)        ; Setzt die Auswahl standardmäßig auf "None"
-    }
+    ; Altes Dropdown leeren und mit der neuen Liste füllen
+    ddlSplitImage.Delete()
+    ddlSplitImage.Add(frischeBilder)
 
-    SplitManagerGui.Show("Center w590")
-    isSplitManagerOpen := 1
+    ; 2. Das ListView (die Tabelle) leeren und mit den Splits füllen
+    lvSplits.Delete()
 
-    ; Falls eine Datei gewählt ist, lade deren Splits in die GUI
     if (SelectedFile != "" && FileExist(SelectedFile)) {
-        try {
-            splitFileDataString := FileRead(SelectedFile)
-            splitFileDataArray := StrSplit(splitFileDataString, "&")
+        splitText := FileRead(SelectedFile)
+        loop parse, splitText, "&" {
+            if (A_LoopField == "")
+                continue
 
-            for i, splitData in splitFileDataArray {
-                splitDataArray := StrSplit(splitData, ",")
-                if (splitDataArray.Length >= 5) {
-                    makeNewSplit(splitManagerIndex, splitDataArray[1], splitDataArray[2], splitDataArray[3],
-                        splitDataArray[4], splitDataArray[5])
-                }
+            zeilenDaten := StrSplit(A_LoopField, ",")
+            ; Wenn die Zeile gültig ist (Name, Bild, Dummy, Thresh, Delay)
+            if (zeilenDaten.Length >= 5) {
+                lvSplits.Add("", zeilenDaten[1], zeilenDaten[2], zeilenDaten[3], zeilenDaten[4], zeilenDaten[5])
             }
         }
     }
+    ; NEU: Sicherstellen, dass die Felder eingeklappt sind und das Fenster schrumpft
+    ToggleEditArea(false)
 
-    ; Warten, bis der Benutzer das Fenster schließt
-    WinWaitClose("Split Manager")
-    isSplitManagerOpen := 0
+    ; GUI anzeigen
+    SplitManagerGui.Show()
+}
 
-    ; Hauptfenster wieder freigeben
-    MainGui.Opt("-Disabled")
-    MainGui.Show()
+; ===================================================
+; Split Manager: UI Toggle Hilfsfunktion
+; ===================================================
+ToggleEditArea(show, mode := "") {
+    global splitEditMode := mode
+
+    ; 1. Eingabefelder ein- oder ausblenden
+    lblSplitName.Visible := show, edSplitName.Visible := show
+    lblSplitImage.Visible := show, ddlSplitImage.Visible := show
+    chkSplitDummy.Visible := show, lblSplitThresh.Visible := show
+    edSplitThresh.Visible := show, lblSplitDelay.Visible := show, edSplitDelay.Visible := show
+
+    ; 2. Save und Cancel sind IMMER da, wenn die Felder sichtbar sind
+    btnSaveEdit.Visible := show
+    btnCancelEdit.Visible := show
+
+    ; 3. Edit-Buttons (Save As New, Delete, Up, Down) nur im "Edit"-Modus zeigen
+    showEditButtons := (show && mode == "Edit")
+    btnSaveAsNew.Visible := showEditButtons
+    btnDeleteEdit.Visible := showEditButtons
+    btnUpEdit.Visible := showEditButtons
+    btnDownEdit.Visible := showEditButtons
+
+    ; 4. Wenn wir ausblenden oder einen NEUEN Split anlegen, Felder leeren
+    if (!show || mode == "Add") {
+        edSplitName.Value := ""
+        try ddlSplitImage.Choose("None")
+        chkSplitDummy.Value := 0
+        edSplitThresh.Value := "0.95"
+        edSplitDelay.Value := "0"
+
+        ; Auswahl im ListView aufheben
+        if (mode != "Edit")
+            lvSplits.Modify(0, "-Select -Focus")
+    }
+
+    SplitManagerGui.Show("AutoSize")
+}
+; ===================================================
+; Split Manager: ListView Button-Events
+; ===================================================
+
+; Klick auf eine Zeile in der Liste
+OnSplitSelect(GuiCtrlObj, Item, Selected) {
+    if (!Selected)
+        return
+
+    edSplitName.Value := lvSplits.GetText(Item, 1)
+    try ddlSplitImage.Choose(lvSplits.GetText(Item, 2))
+    chkSplitDummy.Value := (lvSplits.GetText(Item, 3) == "1") ? 1 : 0
+    edSplitThresh.Value := lvSplits.GetText(Item, 4)
+    edSplitDelay.Value := lvSplits.GetText(Item, 5)
+
+    ToggleEditArea(true, "Edit") ; Zeigt alle Buttons!
+}
+
+; Klick auf "Add New Split" (Hauptmenü)
+BtnShowAddArea(*) {
+    ToggleEditArea(true, "Add") ; Zeigt nur Save & Cancel, leert die Felder
+}
+
+; Klick auf "Cancel"
+BtnCancelAction(*) {
+    ToggleEditArea(false) ; Versteckt alles, leert die Felder
+}
+
+; Klick auf "Save"
+BtnSaveAction(*) {
+    name := edSplitName.Value
+    if (name == "") {
+        MsgBox("Bitte gib dem Split einen Namen!")
+        return
+    }
+
+    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
+
+    if (splitEditMode == "Edit") {
+        row := lvSplits.GetNext(0)
+        if (row > 0)
+            lvSplits.Modify(row, "", name, image, dummy, thresh, delay)
+    } else if (splitEditMode == "Add") {
+        lvSplits.Add("", name, image, dummy, thresh, delay)
+    }
+
+    ToggleEditArea(false) ; Versteckt alles nach dem Speichern
+}
+
+; Klick auf "Save As New"
+BtnSaveAsNewAction(*) {
+    name := edSplitName.Value
+    if (name == "") {
+        MsgBox("Bitte gib dem Split einen Namen!")
+        return
+    }
+
+    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
+
+    row := lvSplits.GetNext(0)
+    if (row > 0)
+        lvSplits.Insert(row + 1, "", name, image, dummy, thresh, delay)
+
+    ToggleEditArea(false)
+}
+
+; Klick auf "Delete"
+BtnDeleteAction(*) {
+    row := lvSplits.GetNext(0)
+    if (row > 0)
+        lvSplits.Delete(row)
+
+    ToggleEditArea(false)
+}
+
+; Klick auf "Up"
+BtnUpAction(*) {
+    row := lvSplits.GetNext(0)
+    if (row <= 1)
+        return
+
+    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
+        row, 4), c5 := lvSplits.GetText(row, 5)
+    p1 := lvSplits.GetText(row - 1, 1), p2 := lvSplits.GetText(row - 1, 2), p3 := lvSplits.GetText(row - 1, 3), p4 :=
+    lvSplits.GetText(row - 1, 4), p5 := lvSplits.GetText(row - 1, 5)
+
+    lvSplits.Modify(row - 1, "", c1, c2, c3, c4, c5)
+    lvSplits.Modify(row, "", p1, p2, p3, p4, p5)
+
+    lvSplits.Modify(row - 1, "Select Focus")
+    lvSplits.Modify(row, "-Select -Focus")
+    ; HINWEIS: ToggleEditArea(false) wird hier NICHT aufgerufen, damit man mehrfach klicken kann!
+}
+
+; Klick auf "Down"
+BtnDownAction(*) {
+    row := lvSplits.GetNext(0)
+    if (row == 0 || row == lvSplits.GetCount())
+        return
+
+    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
+        row, 4), c5 := lvSplits.GetText(row, 5)
+    n1 := lvSplits.GetText(row + 1, 1), n2 := lvSplits.GetText(row + 1, 2), n3 := lvSplits.GetText(row + 1, 3), n4 :=
+    lvSplits.GetText(row + 1, 4), n5 := lvSplits.GetText(row + 1, 5)
+
+    lvSplits.Modify(row + 1, "", c1, c2, c3, c4, c5)
+    lvSplits.Modify(row, "", n1, n2, n3, n4, n5)
+
+    lvSplits.Modify(row + 1, "Select Focus")
+    lvSplits.Modify(row, "-Select -Focus")
 }
 ; ===================================================
 ; Split Image Maker öffnen
@@ -777,84 +829,163 @@ LoadSplitsFile(path) {
         MsgBox("Fehler beim Laden der Datei.")
     }
 }
-BtnAddSplitClick(*) {
-    global splitManagerIndex, SplitManagerGui
 
-    SplitManagerGui.Opt("+Disabled")
+CloseSplitManager(*) {
+    global SplitManagerGui, MainGui
 
-    promptText :=
-        "Where would you like to insert a new split`nSplits at or below that position will be shifted down`n(Leave the input blank to add one at the end)"
-    ib := InputBox(promptText, "Add Split")
+    ; Das Split-Manager-Fenster verstecken (nicht komplett zerstören, damit die Daten bleiben)
+    SplitManagerGui.Hide()
 
-    if (ib.Result != "Cancel" && ib.Result != "Timeout") {
-        val := ib.Value
-
-        if (val == "" || !IsInteger(val)) {
-            makeNewSplit(splitManagerIndex + 1)
-        } else if (val <= splitManagerIndex) {
-            makeNewSplit(val)
-        } else {
-            makeNewSplit(splitManagerIndex + 1)
-        }
-    }
-
-    SplitManagerGui.Opt("-Disabled")
-    SplitManagerGui.Show()
+    ; Das Hauptfenster wieder entsperren und in den Vordergrund holen
+    MainGui.Opt("-Disabled")
+    MainGui.Show()
 }
 
-BtnRemoveSplitClick(*) {
-    global splitManagerIndex, SplitManagerGui
+; ===================================================
+; Split Manager: ListView Button-Events
+; ===================================================
 
-    SplitManagerGui.Opt("+Disabled")
+BtnAddSplitToList(*) {
+    global edSplitName, ddlSplitImage, chkSplitDummy, edSplitThresh, edSplitDelay, lvSplits
 
-    promptText := "Which split would you like to remove`n(Leave the input blank to remove the final split)"
-    ib := InputBox(promptText, "Remove Split")
-
-    if (ib.Result != "Cancel" && ib.Result != "Timeout") {
-        val := ib.Value
-
-        if (val == "" || !IsInteger(val)) {
-            removeSplit(splitManagerIndex) ; Ruft das interne Arbeitstier auf
-        } else if (val <= splitManagerIndex) {
-            removeSplit(val)
-        } else {
-            removeSplit(splitManagerIndex)
-        }
+    name := edSplitName.Value
+    if (name == "") {
+        MsgBox("Bitte gib dem Split einen Namen!")
+        return
     }
 
-    SplitManagerGui.Opt("-Disabled")
-    SplitManagerGui.Show()
+    image := ddlSplitImage.Text
+    dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value
+    delay := edSplitDelay.Value
+
+    ; Einfach ans Ende der Liste anhängen
+    lvSplits.Add("", name, image, dummy, thresh, delay)
+
+    ; Textfeld für den Namen leeren, damit man schnell den nächsten eintragen kann
+    edSplitName.Value := ""
 }
+
+BtnUpdateSplitInList(*) {
+    global edSplitName, ddlSplitImage, chkSplitDummy, edSplitThresh, edSplitDelay, lvSplits
+
+    row := lvSplits.GetNext(0) ; Ausgewählte Zeile finden
+    if (row == 0) {
+        MsgBox("Bitte wähle zuerst einen Split in der Liste aus, den du aktualisieren möchtest.")
+        return
+    }
+
+    name := edSplitName.Value
+    image := ddlSplitImage.Text
+    dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value
+    delay := edSplitDelay.Value
+
+    ; Die ausgewählte Zeile mit den neuen Werten überschreiben
+    lvSplits.Modify(row, "", name, image, dummy, thresh, delay)
+}
+
+BtnRemoveSplitFromList(*) {
+    global lvSplits
+
+    row := lvSplits.GetNext(0)
+    if (row == 0) {
+        return
+    }
+
+    ; Zeile einfach löschen - AHK rückt den Rest automatisch auf!
+    lvSplits.Delete(row)
+}
+
+BtnMoveSplitUp(*) {
+    global lvSplits
+
+    row := lvSplits.GetNext(0)
+    ; Wenn nichts ausgewählt ist oder wir schon ganz oben sind, mach nichts
+    if (row <= 1)
+        return
+
+    ; Daten der aktuellen Zeile holen
+    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2)
+    c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(row, 4)
+    c5 := lvSplits.GetText(row, 5)
+
+    ; Daten der Zeile darüber holen
+    p1 := lvSplits.GetText(row - 1, 1), p2 := lvSplits.GetText(row - 1, 2)
+    p3 := lvSplits.GetText(row - 1, 3), p4 := lvSplits.GetText(row - 1, 4)
+    p5 := lvSplits.GetText(row - 1, 5)
+
+    ; Werte tauschen
+    lvSplits.Modify(row - 1, "", c1, c2, c3, c4, c5)
+    lvSplits.Modify(row, "", p1, p2, p3, p4, p5)
+
+    ; Die Markierung mit nach oben nehmen
+    lvSplits.Modify(row - 1, "Select Focus")
+    lvSplits.Modify(row, "-Select -Focus")
+}
+
+BtnMoveSplitDown(*) {
+    global lvSplits
+
+    row := lvSplits.GetNext(0)
+    ; Wenn nichts ausgewählt ist oder wir schon ganz unten sind
+    if (row == 0 || row == lvSplits.GetCount())
+        return
+
+    ; Daten der aktuellen Zeile
+    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2)
+    c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(row, 4)
+    c5 := lvSplits.GetText(row, 5)
+
+    ; Daten der Zeile darunter
+    n1 := lvSplits.GetText(row + 1, 1), n2 := lvSplits.GetText(row + 1, 2)
+    n3 := lvSplits.GetText(row + 1, 3), n4 := lvSplits.GetText(row + 1, 4)
+    n5 := lvSplits.GetText(row + 1, 5)
+
+    ; Werte tauschen
+    lvSplits.Modify(row + 1, "", c1, c2, c3, c4, c5)
+    lvSplits.Modify(row, "", n1, n2, n3, n4, n5)
+
+    ; Markierung mit nach unten nehmen
+    lvSplits.Modify(row + 1, "Select Focus")
+    lvSplits.Modify(row, "-Select -Focus")
+}
+
+; ===================================================
+; Speichern und Schließen
+; ===================================================
 
 SaveSplitsAndCloseManager(*) {
-    global SelectedFile
+    global SelectedFile, SplitManagerGui, MainGui, lvSplits
+
     SplitManagerGui.Opt("+Disabled")
 
     outputString := ""
-    loop splitManagerIndex {
-        ; Werte aus den Arrays der Controls sammeln
-        cName := splitNameControls[A_Index].Value
+    rowCount := lvSplits.GetCount()
 
-        ; WICHTIGE ÄNDERUNG: .Text statt .Value für Dropdowns in v2!
-        cImage := splitImageControls[A_Index].Text
+    ; Das gesamte ListView Zeile für Zeile auslesen
+    loop rowCount {
+        row := A_Index
+        name := lvSplits.GetText(row, 1)
+        image := lvSplits.GetText(row, 2)
+        dummy := lvSplits.GetText(row, 3)
+        thresh := lvSplits.GetText(row, 4)
+        delay := lvSplits.GetText(row, 5)
 
-        cDummy := splitDummyControls[A_Index].Value
-        cThresh := splitThreshControls[A_Index].Value
-        cDelay := splitDelayControls[A_Index].Value
-
-        if (cName == "" || cName == " ")
-            break
-
-        line := cName "," cImage "," cDummy "," cThresh "," cDelay
-        outputString .= (A_Index = 1 ? "" : "&") . line
+        line := name "," image "," dummy "," thresh "," delay
+        outputString .= (A_Index == 1 ? "" : "&") . line
     }
 
+    ; In die Datei schreiben, falls eine ausgewählt ist
     if (SelectedFile != "") {
         try FileDelete(SelectedFile)
         FileAppend(outputString, SelectedFile)
-        LoadSplitsFile(SelectedFile) ; Liste im Hauptfenster neu laden
+
+        ; Das Dropdown im Haupt-GUI mit den neuen Splits füttern
+        LoadSplitsFile(SelectedFile)
     }
 
+    ; Fenster schließen und Hauptmenü freigeben
     SplitManagerGui.Hide()
     SplitManagerGui.Opt("-Disabled")
     MainGui.Opt("-Disabled")
