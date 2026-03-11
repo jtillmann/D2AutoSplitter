@@ -1080,40 +1080,53 @@ Picture(*) {
 }
 
 LetUserSelectRect(&outX1, &outY1, &outX2, &outY2) {
+    ; 1. Warten, bis der Klick auf den "Select"-Button wirklich beendet ist
+    KeyWait("LButton")
+
+    ; ==========================================================
+    ; DER FIX: Ein unsichtbares "Schutzschild"-GUI über alle Monitore legen
+    ; ==========================================================
+    ShieldGui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")
+    ShieldGui.BackColor := "White"
+    
+    ; Transparenz auf 1 setzen. 
+    ; (1 ist quasi unsichtbar, aber Windows blockiert den Klick für die Fenster dahinter!)
+    WinSetTransparent(1, ShieldGui.Hwnd)
+
+    ; Das Schild über den gesamten virtuellen Desktop spannen
+    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
+    ShieldGui.Show("x" vx " y" vy " w" vw " h" vh " NA")
+
+    CoordMode("Mouse", "Screen")
     local xorigin, yorigin
 
-    lusr_return(*) {
-        ; Dummy function to catch the click
-    }
-
-    ; Nested timer function in v2 accesses local variables!
     lusr_update() {
         local x, y
         MouseGetPos(&x, &y)
-
-        if (x < xorigin) {
-            outX1 := x, outX2 := xorigin
-        } else {
-            outX2 := x, outX1 := xorigin
-        }
-
-        if (y < yorigin) {
-            outY1 := y, outY2 := yorigin
-        } else {
-            outY2 := y, outY1 := yorigin
-        }
+        
+        ; Min und Max sortieren die Koordinaten automatisch richtig, 
+        ; egal in welche Richtung du die Maus ziehst!
+        outX1 := Min(x, xorigin)
+        outX2 := Max(x, xorigin)
+        outY1 := Min(y, yorigin)
+        outY2 := Max(y, yorigin)
+        
         updateRect(outX1, outY1, outX2, outY2)
     }
 
-    Hotkey("*LButton", lusr_return, "On")
+    ; 2. Warten, bis du auf das unsichtbare Schild klickst
     KeyWait("LButton", "D")
     MouseGetPos(&xorigin, &yorigin)
 
+    ; Timer startet das Zeichnen des roten Rahmens
     SetTimer(lusr_update, 10)
+    
+    ; 3. Warten, bis du die Maus loslässt
     KeyWait("LButton")
 
-    Hotkey("*LButton", "Off")
+    ; Timer beenden und das unsichtbare Schild zerstören
     SetTimer(lusr_update, 0)
+    ShieldGui.Destroy()
 }
 
 updateRect(rx1, ry1, rx2, ry2, r := 2) {
