@@ -5,8 +5,9 @@ ProcessSetPriority "A"
 SetWinDelay -1
 SetControlDelay -1
 
-; In v2 ist SendMode Input der Standard, muss also nicht explizit gesetzt werden.
-#Include %A_ScriptDir%/Gdip_all_v2.ahk ; ACHTUNG: Erfordert Gdip v2!
+#Include %A_ScriptDir%/Gdip_all_v2.ahk
+#Include %A_ScriptDir%/Modules/Helpers.ahk
+#Include %A_ScriptDir%/Modules/SplitManager.ahk
 
 SetWorkingDir A_ScriptDir
 CoordMode "Mouse", "Screen"
@@ -83,6 +84,7 @@ global WhiteCorrectForGui := 0
 global BlackCorrectForGui := 0
 global DPI_Ratio := A_ScreenDPI / 96
 global StartOnFirstInput := 0
+global isWaitingForFirstInput := false
 
 ; ===================================================
 ; Globale GUI-Objekte (Vorbereitung für v2 Scope)
@@ -166,7 +168,7 @@ MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 ; In v2 speichern wir die Control-Objekte in Variablen, um später darauf zuzugreifen
 tmpVar1 := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
 if (tmpVar1 != "") {
-    try Hotkey("$" tmpVar1, StartKeyPressed)
+    try Hotkey("$" tmpVar1, BtnStartClick)
 }
 hkControl1 := MainGui.Add("Hotkey", "x570 y290 w130 h21 vHotKey1", tmpVar1)
 
@@ -210,14 +212,16 @@ MainGui.Add("Text", "x490 y380 w60 h20 +0x200", "Undo Split")
 MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 
 btnStart := MainGui.Add("Button", "x490 y180 w210 h40", "Start")
-btnStart.OnEvent("Click", StartAutoSplitter)
+btnStart.OnEvent("Click", BtnStartClick)
 
-MainGui.Add("Button", "x490 y130 w210 h40", "Reset").OnEvent("Click", StopOnlyAutoSplitter)
+btnReset := MainGui.Add("Button", "x490 y130 w210 h40", "Reset")
+btnReset.OnEvent("Click", StopOnlyAutoSplitter)
 MainGui.Add("Button", "x600 y80 w100 h40", "Next >").OnEvent("Click", SkipOnlyAutoSplitter)
 MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", UndoOnlyAutoSplitter)
 
 chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24", "") ; vStartOnFirstInput
 txtStartFirstTitle := MainGui.Add("Text", "x510 y230 w150 h20 +0x200", "Start waits for First Input")
+global txtWaitingFirstInput := MainGui.Add("Text", "x10 y55 w300 h20 cRed Hidden", "Waiting for First Input...")
 
 MainGui.SetFont("s7 cCCCCCC", "Segoe UI")
 MainGui.Add("Text", "x325 y70 w150 h15", "Previous Split")
@@ -245,67 +249,7 @@ txtBlack := MainGui.Add("Text", "x230 y380 w25 h20 +0x200 +Right", "0") ; vbCorr
 MainGui.Add("Text", "x257 y380 w70 h20 +0x200", "% Black")
 
 MainGui.Show("w720 h450")
-
-; ===================================================
-; 6. Split Manager GUI Aufbau (Dynamisches ListView)
-; ===================================================
-global imgChoices := ["None", "Boss Death", "Boss Healthbar"]
-global SplitManagerGui := Gui("+AlwaysOnTop", "Split Manager")
-SplitManagerGui.OnEvent("Close", CloseSplitManager)
-
-; 1. Das ListView (Höhe von 250 auf 375 erhöht)
-global lvSplits := SplitManagerGui.Add("ListView", "x10 y10 w500 h375 -Multi +Grid", ["Split Name", "Image", "Dummy",
-    "Threshold", "Delay"])
-lvSplits.OnEvent("ItemSelect", OnSplitSelect)
-
-; NACHHER (Optimal ausgenutzt für w500):
-lvSplits.ModifyCol(1, 160) ; Split Name (bekommt am meisten Platz)
-lvSplits.ModifyCol(2, 145) ; Image (für längere Dateinamen)
-lvSplits.ModifyCol(3, 50)  ; Dummy (braucht nur Platz für 0 oder 1)
-lvSplits.ModifyCol(4, 65)  ; Threshold
-lvSplits.ModifyCol(5, 60)  ; Delay
-
-; 2. Globale Variable für den aktuellen Modus ("Edit" oder "Add")
-global splitEditMode := ""
-
-; 3. Haupt-Buttons (Immer sichtbar, Y-Achse um +125 nach unten verschoben auf 395)
-SplitManagerGui.Add("Button", "x10 y395 w150 h30", "Add New Split").OnEvent("Click", BtnShowAddArea)
-SplitManagerGui.Add("Button", "x360 y395 w150 h30", "Save to File && Close").OnEvent("Click", SaveSplitsAndCloseManager
-)
-
-; 4. Die Eingabefelder (Standardmäßig versteckt! Y-Achsen um +125 nach unten verschoben)
-global lblSplitName := SplitManagerGui.Add("Text", "x10 y435 w100 Hidden", "Name:")
-global edSplitName := SplitManagerGui.Add("Edit", "x10 y450 w120 Hidden", "")
-
-global lblSplitImage := SplitManagerGui.Add("Text", "x140 y435 w100 Hidden", "Image:")
-global ddlSplitImage := SplitManagerGui.Add("DropDownList", "x140 y450 w120 Choose1 Hidden", imgChoices)
-
-global chkSplitDummy := SplitManagerGui.Add("CheckBox", "x275 y450 w60 Hidden", "Dummy")
-
-global lblSplitThresh := SplitManagerGui.Add("Text", "x345 y435 w60 Hidden", "Threshold:")
-global edSplitThresh := SplitManagerGui.Add("Edit", "x345 y450 w60 Hidden", "0.95")
-
-global lblSplitDelay := SplitManagerGui.Add("Text", "x415 y435 w60 Hidden", "Delay:")
-global edSplitDelay := SplitManagerGui.Add("Edit", "x415 y450 w60 Hidden", "0")
-
-; 5. Die kontextbezogenen Aktions-Buttons (Versteckt! Y-Achse auf 490)
-global btnSaveEdit := SplitManagerGui.Add("Button", "x10 y490 w60 h30 Hidden", "Save")
-btnSaveEdit.OnEvent("Click", BtnSaveAction)
-
-global btnSaveAsNew := SplitManagerGui.Add("Button", "x75 y490 w90 h30 Hidden", "Save As New")
-btnSaveAsNew.OnEvent("Click", BtnSaveAsNewAction)
-
-global btnDeleteEdit := SplitManagerGui.Add("Button", "x170 y490 w60 h30 Hidden", "Delete")
-btnDeleteEdit.OnEvent("Click", BtnDeleteAction)
-
-global btnUpEdit := SplitManagerGui.Add("Button", "x235 y490 w40 h30 Hidden", "Up")
-btnUpEdit.OnEvent("Click", BtnUpAction)
-
-global btnDownEdit := SplitManagerGui.Add("Button", "x280 y490 w50 h30 Hidden", "Down")
-btnDownEdit.OnEvent("Click", BtnDownAction)
-
-global btnCancelEdit := SplitManagerGui.Add("Button", "x450 y490 w60 h30 Hidden", "Cancel")
-btnCancelEdit.OnEvent("Click", BtnCancelAction)
+btnStart.Focus()
 
 ; ===================================================
 ; GUI für Split Image Maker
@@ -624,114 +568,15 @@ ToggleEditArea(show, mode := "") {
 ; ===================================================
 
 ; Klick auf eine Zeile in der Liste
-OnSplitSelect(GuiCtrlObj, Item, Selected) {
-    if (!Selected)
-        return
-
-    edSplitName.Value := lvSplits.GetText(Item, 1)
-    try ddlSplitImage.Choose(lvSplits.GetText(Item, 2))
-    chkSplitDummy.Value := (lvSplits.GetText(Item, 3) == "1") ? 1 : 0
-    edSplitThresh.Value := lvSplits.GetText(Item, 4)
-    edSplitDelay.Value := lvSplits.GetText(Item, 5)
-
-    ToggleEditArea(true, "Edit") ; Zeigt alle Buttons!
-}
 
 ; Klick auf "Add New Split" (Hauptmenü)
-BtnShowAddArea(*) {
-    ToggleEditArea(true, "Add") ; Zeigt nur Save & Cancel, leert die Felder
-}
-
-; Klick auf "Cancel"
-BtnCancelAction(*) {
-    ToggleEditArea(false) ; Versteckt alles, leert die Felder
-}
 
 ; Klick auf "Save"
-BtnSaveAction(*) {
-    name := edSplitName.Value
-    if (name == "") {
-        MsgBox("Bitte gib dem Split einen Namen!")
-        return
-    }
-
-    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
-
-    if (splitEditMode == "Edit") {
-        row := lvSplits.GetNext(0)
-        if (row > 0)
-            lvSplits.Modify(row, "", name, image, dummy, thresh, delay)
-    } else if (splitEditMode == "Add") {
-        lvSplits.Add("", name, image, dummy, thresh, delay)
-    }
-
-    ToggleEditArea(false) ; Versteckt alles nach dem Speichern
-}
 
 ; Klick auf "Save As New"
-BtnSaveAsNewAction(*) {
-    name := edSplitName.Value
-    if (name == "") {
-        MsgBox("Bitte gib dem Split einen Namen!")
-        return
-    }
-
-    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
-
-    row := lvSplits.GetNext(0)
-    if (row > 0)
-        lvSplits.Insert(row + 1, "", name, image, dummy, thresh, delay)
-
-    ToggleEditArea(false)
-}
 
 ; Klick auf "Delete"
-BtnDeleteAction(*) {
-    row := lvSplits.GetNext(0)
-    if (row > 0)
-        lvSplits.Delete(row)
 
-    ToggleEditArea(false)
-}
-
-; Klick auf "Up"
-BtnUpAction(*) {
-    row := lvSplits.GetNext(0)
-    if (row <= 1)
-        return
-
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
-        row, 4), c5 := lvSplits.GetText(row, 5)
-    p1 := lvSplits.GetText(row - 1, 1), p2 := lvSplits.GetText(row - 1, 2), p3 := lvSplits.GetText(row - 1, 3), p4 :=
-    lvSplits.GetText(row - 1, 4), p5 := lvSplits.GetText(row - 1, 5)
-
-    lvSplits.Modify(row - 1, "", c1, c2, c3, c4, c5)
-    lvSplits.Modify(row, "", p1, p2, p3, p4, p5)
-
-    lvSplits.Modify(row - 1, "Select Focus")
-    lvSplits.Modify(row, "-Select -Focus")
-    ; HINWEIS: ToggleEditArea(false) wird hier NICHT aufgerufen, damit man mehrfach klicken kann!
-}
-
-; Klick auf "Down"
-BtnDownAction(*) {
-    row := lvSplits.GetNext(0)
-    if (row == 0 || row == lvSplits.GetCount())
-        return
-
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
-        row, 4), c5 := lvSplits.GetText(row, 5)
-    n1 := lvSplits.GetText(row + 1, 1), n2 := lvSplits.GetText(row + 1, 2), n3 := lvSplits.GetText(row + 1, 3), n4 :=
-    lvSplits.GetText(row + 1, 4), n5 := lvSplits.GetText(row + 1, 5)
-
-    lvSplits.Modify(row + 1, "", c1, c2, c3, c4, c5)
-    lvSplits.Modify(row, "", n1, n2, n3, n4, n5)
-
-    lvSplits.Modify(row + 1, "Select Focus")
-    lvSplits.Modify(row, "-Select -Focus")
-}
 ; ===================================================
 ; Split Image Maker öffnen
 ; ===================================================
@@ -828,17 +673,6 @@ LoadSplitsFile(path) {
     } catch {
         MsgBox("Fehler beim Laden der Datei.")
     }
-}
-
-CloseSplitManager(*) {
-    global SplitManagerGui, MainGui
-
-    ; Das Split-Manager-Fenster verstecken (nicht komplett zerstören, damit die Daten bleiben)
-    SplitManagerGui.Hide()
-
-    ; Das Hauptfenster wieder entsperren und in den Vordergrund holen
-    MainGui.Opt("-Disabled")
-    MainGui.Show()
 }
 
 ; ===================================================
@@ -955,48 +789,35 @@ BtnMoveSplitDown(*) {
 ; Speichern und Schließen
 ; ===================================================
 
-SaveSplitsAndCloseManager(*) {
-    global SelectedFile, SplitManagerGui, MainGui, lvSplits
-
-    SplitManagerGui.Opt("+Disabled")
-
-    outputString := ""
-    rowCount := lvSplits.GetCount()
-
-    ; Das gesamte ListView Zeile für Zeile auslesen
-    loop rowCount {
-        row := A_Index
-        name := lvSplits.GetText(row, 1)
-        image := lvSplits.GetText(row, 2)
-        dummy := lvSplits.GetText(row, 3)
-        thresh := lvSplits.GetText(row, 4)
-        delay := lvSplits.GetText(row, 5)
-
-        line := name "," image "," dummy "," thresh "," delay
-        outputString .= (A_Index == 1 ? "" : "&") . line
-    }
-
-    ; In die Datei schreiben, falls eine ausgewählt ist
-    if (SelectedFile != "") {
-        try FileDelete(SelectedFile)
-        FileAppend(outputString, SelectedFile)
-
-        ; Das Dropdown im Haupt-GUI mit den neuen Splits füttern
-        LoadSplitsFile(SelectedFile)
-    }
-
-    ; Fenster schließen und Hauptmenü freigeben
-    SplitManagerGui.Hide()
-    SplitManagerGui.Opt("-Disabled")
-    MainGui.Opt("-Disabled")
-    MainGui.Show()
-}
-
 ; ===================================================
 ; Haupt-Logik des AutoSplitters
 ; ===================================================
+BtnStartClick(*) {
+    global isWaitingForFirstInput, chkStartFirst, btnStart, txtWaitingFirstInput, btnReset
 
-StartAutoSplitter(*) {
+    ; Wenn wir bereits warten, passiert beim erneuten Klicken nichts
+    if (isWaitingForFirstInput)
+        return
+
+    ; Wenn das Häkchen gesetzt ist, gehen wir in den "Warte-Modus"
+    isWaitingForFirstInput := true
+    if (chkStartFirst.Value == 1) {
+
+        btnReset.focus()
+
+        ; GUI umschalten
+        btnStart.Visible := false
+        chkStartFirst.Visible := false
+        txtWaitingFirstInput.Visible := true
+
+        return ; WICHTIG: Hier brechen wir ab! Der echte Start passiert noch nicht.
+    }
+
+    ; Wenn das Häkchen NICHT gesetzt ist, sofort ganz normal starten:
+    ExecuteActualStart()
+}
+
+ExecuteActualStart(*) {
     global currentlyLoadedSplits, currentlyLoadedSplitIndex, breakLoop, nLoops
     global splitButton, StartOnFirstInput
 
@@ -1114,19 +935,32 @@ StartAutoSplitter(*) {
 ; ===================================================
 ; Hotkey-Eingabe Reaktionen
 ; ===================================================
+HandleFirstInput() {
+    global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
+
+    ; Reagiert NUR, wenn wir vorher auf "Start" gedrückt haben und die Checkbox an war
+    if (isWaitingForFirstInput) {
+        isWaitingForFirstInput := false ; Sofort beenden, damit es nicht doppelt auslöst
+
+        ; GUI wieder in den Normalzustand versetzen
+        txtWaitingFirstInput.Visible := false
+        btnStart.Visible := true
+        chkStartFirst.Visible := true
+
+        ; Jetzt den eigentlichen Startbefehl ausführen!
+        ExecuteActualStart()
+    }
+}
 
 InputKeyPressed(*) {
-    global currentlyLoadedSplitIndex, hotKeySettingsArray
-
-    ; Statt 'Gui, Submit' lesen wir den Wert der Checkbox direkt aus
-    startFirstVal := chkStartFirst.Value
+    global currentlyLoadedSplitIndex, hotKeySettingsArray, isWaitingForFirstInput
 
     ; Das aktive Fenster abfragen (v2 Syntax)
     activeWindow := WinGetTitle("A")
 
-    WriteLog("InputKeyPressed " currentlyLoadedSplitIndex " " startFirstVal " " activeWindow)
+    WriteLog("InputKeyPressed " currentlyLoadedSplitIndex " " isWaitingForFirstInput " " activeWindow)
 
-    if (startFirstVal && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
+    if (isWaitingForFirstInput && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
         WriteLog("InputKeyPressed! Starting...")
 
         splitKey := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
@@ -1135,7 +969,7 @@ InputKeyPressed(*) {
         }
 
         ; In v2 ersetzen wir 'GoSub StartAutoSplitter' durch einen simplen Funktionsaufruf
-        StartAutoSplitter()
+        ExecuteActualStart()
     }
 }
 
@@ -1293,236 +1127,6 @@ waitForNextSplit() {
     if (timerText <= 0)
         waitingForNextSplit := 0
 }
-; ===================================================
-; Bild-Such-Funktionen (findNormal, findBossDeath, findBossThere)
-; ===================================================
-
-findNormal(imgInfo) {
-    global makeh, makew, currentSplitPixelArray
-    imageCoordinates := imgInfo[2]
-
-    ; Gdip_BitmapFromScreen benötigt den Koordinaten-String
-    pBitmap := Gdip_BitmapFromScreen(imageCoordinates)
-
-    ; colorCheck durchführen
-    pCorrect := colorCheck(pBitmap, currentSplitPixelArray)
-
-    Gdip_DisposeImage(pBitmap)
-    return pCorrect
-}
-
-findBossDeath(imgInfo) {
-    global imageDataArray, bossHpHelper
-    bossHPCoords := imageDataArray[3]
-
-    pBitmap4 := Gdip_BitmapFromScreen(bossHPCoords)
-    isDead := bossHPCheck(pBitmap4, 40, 10)
-
-    if (isDead) {
-        bossHpHelper += 1
-    }
-
-    pCorrect := Round((bossHpHelper / 4), 2)
-    Gdip_DisposeImage(pBitmap4)
-    return pCorrect
-}
-
-findBossThere(imgInfo) {
-    global imageDataArray, bossHpHelper
-    bossHPCoords := imageDataArray[3]
-
-    pBitmap4 := Gdip_BitmapFromScreen(bossHPCoords)
-    isThere := bossHPShowingUp(pBitmap4, 40, 10)
-
-    if (isThere) {
-        bossHpHelper += 1
-    }
-
-    pCorrect := Round((bossHpHelper / 6), 2)
-    Gdip_DisposeImage(pBitmap4) ; Fix: war im Original pBitmap
-    return pCorrect
-}
-
-; ===================================================
-; Pixel-Array Erstellung (Wandelt PNG in 0/1 String um)
-; ===================================================
-
-makePixelArrayString(imageName) {
-    global makew, makeh, makeWhite, makeBlack
-
-    makeWhite := 0
-    makeBlack := 0
-    pixelString := ""
-
-    ; Bild in den Arbeitsspeicher laden
-    pBitmap := Gdip_CreateBitmapFromFile(A_ScriptDir "\Split_Images\" imageName ".png")
-    if (!pBitmap) {
-        MsgBox("Fehler: Konnte Bild " imageName ".png nicht laden.")
-        return ""
-    }
-
-    ; Breite und Höhe auslesen
-    Gdip_GetImageDimensions(pBitmap, &makew, &makeh)
-
-    BitmapData := Buffer(32, 0)
-    Stride := 0, Scan0 := 0
-
-    ; Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
-    Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
-
-    loop makeh {
-        y := A_Index - 1
-        loop makew {
-            x := A_Index - 1
-
-            ; Direkter Speicherzugriff
-            pixelAddress := Scan0 + (y * Stride) + (x * 4)
-            rawColor := NumGet(pixelAddress, "UInt")
-            color := (rawColor & 0x00F0F0F0)
-
-            ; String direkt mit Komma anhängen (ist extrem schnell)
-            if (color == 0xF0F0F0) {
-                pixelString .= "1,"
-                makeWhite += 1
-            } else {
-                pixelString .= "0,"
-                makeBlack += 1
-            }
-        }
-    }
-
-    ; Bild im RAM entsperren und löschen (Wichtig gegen Memory Leaks!)
-    Gdip_UnlockBits(pBitmap, &BitmapData)
-    Gdip_DisposeImage(pBitmap)
-
-    ; Das letzte, überschüssige Komma am Ende des Strings abschneiden
-    pixelString := RTrim(pixelString, ",")
-
-    return pixelString
-}
-
-; ===================================================
-; Kern-Vergleichs-Algorithmen
-; ===================================================
-
-colorCheck(pBitmap, pixelArray) {
-    global makeh, makew, makeBlack, makeWhite
-    global PercCorrectForGui, WhiteCorrectForGui, BlackCorrectForGui
-
-    bCorrect := 0
-    wCorrect := 0
-    nWrong := 0
-
-    ; 1. Vorbereitung für LockBits
-    ; Wir erstellen einen Puffer für die Metadaten des Bildes und Variablen für Stride (Zeilenbreite) und Scan0 (Startadresse)
-    BitmapData := Buffer(32, 0)
-    Stride := 0
-    Scan0 := 0
-
-    ; 2. Bild im RAM sperren (LockMode 1 = Read Only, Format 0x26200A = 32bpp ARGB)
-    Gdip_LockBits(pBitmap, 0, 0, makew, makeh, &Stride, &Scan0, &BitmapData, 1, 0x26200A)
-
-    index := 1
-
-    ; 3. Pixel direkt aus dem Speicher lesen
-    loop makeh {
-        y := A_Index - 1
-        loop makew {
-            x := A_Index - 1
-
-            ; Die genaue Speicheradresse dieses einen Pixels berechnen:
-            ; Startadresse + (Y-Koordinate * Zeilenbreite) + (X-Koordinate * 4 Bytes pro Pixel)
-            pixelAddress := Scan0 + (y * Stride) + (x * 4)
-
-            ; Den rohen Farbwert auslesen (UInt = 32-Bit Integer)
-            rawColor := NumGet(pixelAddress, "UInt")
-
-            ; Deine Maskierung anwenden (Ignoriert Alpha-Kanal und leichte Farbabweichungen)
-            color := (rawColor & 0x00F0F0F0)
-
-            if (color == 0xF0F0F0) {
-                if (pixelArray.Has(index) && pixelArray[index] == "1") {
-                    wCorrect += 1
-                } else {
-                    nWrong += 1
-                }
-            } else {
-                if (pixelArray.Has(index) && pixelArray[index] == "0") {
-                    bCorrect += 1
-                } else {
-                    nWrong += 1
-                }
-            }
-            index += 1
-        }
-    }
-
-    ; 4. Bild im RAM wieder entsperren (WICHTIG!)
-    Gdip_UnlockBits(pBitmap, &BitmapData)
-
-    ; --- Restliche Berechnung bleibt exakt gleich ---
-    bRatio := (makeBlack > 0) ? (bCorrect / makeBlack) : 1
-    wRatio := (makeWhite > 0) ? (wCorrect / makeWhite) : 1
-
-    pCorrect := Round(((bRatio + wRatio) / 2), 2)
-
-    PercCorrectForGui := Round((pCorrect * 100), 0)
-    WhiteCorrectForGui := (makeWhite > 0) ? Round((wCorrect / makeWhite * 100), 0) : 0
-    BlackCorrectForGui := (makeBlack > 0) ? Round((bCorrect / makeBlack * 100), 0) : 0
-
-    return pCorrect
-}
-
-bossHPCheck(pBitmap3, hpw, hph) {
-    global bossHealthBarHashTable, bossHpHelper
-    isDead := 1
-    makex := 0
-    makey := 0
-
-    loop hph {
-        loop hpw {
-            pixelColor := Gdip_GetPixel(pBitmap3, makex, makey)
-            ; In v2 nutzt man .Has() für Maps anstelle von HasKey()
-            if (bossHealthBarHashTable.Has(pixelColor)) {
-                isDead := 0
-                break 2 ; Bricht aus beiden Schleifen aus
-            }
-            makex += 1
-        }
-        makex := 0
-        makey += 1
-    }
-
-    if (!isDead) {
-        bossHpHelper := 0
-    }
-    return isDead
-}
-
-bossHPShowingUp(pBitmap3, hpw, hph) {
-    global bossHealthBarHashTable, bossHpHelper
-    isThere := 0
-    makex := 0
-    makey := 0
-
-    loop hph {
-        loop hpw {
-            pixelColor := Gdip_GetPixel(pBitmap3, makex, makey)
-            if (bossHealthBarHashTable.Has(pixelColor)) {
-                isThere := 1
-                break 2
-            }
-            makex += 1
-        }
-        makex := 0
-        makey += 1
-    }
-
-    if (!isThere) {
-        bossHpHelper := 0
-    }
-    return isThere
-}
 
 ; ===================================================
 ; GUI Updates & Split-Steuerung
@@ -1558,6 +1162,16 @@ ResetAutoSplitter(*) {
 }
 
 StopOnlyAutoSplitter(*) {
+    global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
+
+    ; Falls wir im Warte-Modus waren, diesen sofort abbrechen und GUI zurücksetzen
+    if (isWaitingForFirstInput) {
+        isWaitingForFirstInput := false
+        txtWaitingFirstInput.Visible := false
+        btnStart.Visible := true
+        chkStartFirst.Visible := true
+    }
+
     global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, bossHpHelper
     breakLoop := 1
     breakLoopLF := 1
@@ -1844,62 +1458,9 @@ setImages(rx1, ry1, rx2, ry2) {
     txtTP.Value := totalPixels
 }
 
-setBitmapColor(bitmap, colorStr) {
-    x := 0, y := 0
-    Gdip_GetImageDimensions(bitmap, &bitmapWidth, &bitmapHeight)
-
-    loop bitmapHeight {
-        loop bitmapWidth {
-            argbColor := "0xFF" SubStr(colorStr, 3)
-            Gdip_SetPixel(bitmap, x, y, argbColor)
-            x += 1
-        }
-        x := 0
-        y += 1
-    }
-}
-
 ; ===================================================
 ; Farb-Utilities
 ; ===================================================
-
-findAllColorsBetween(darkColor, lightColor) {
-    darkArray := convertToRGB(darkColor)
-    lightArray := convertToRGB(lightColor)
-    returnMap := Map() ; Map() ersetzt {}
-
-    redDiff := lightArray[1] - darkArray[1] + 1
-    greenDiff := lightArray[2] - darkArray[2] + 1
-    blueDiff := lightArray[3] - darkArray[3] + 1
-
-    loop redDiff {
-        rOffset := A_Index - 1
-        loop greenDiff {
-            gOffset := A_Index - 1
-            loop blueDiff {
-                bOffset := A_Index - 1
-
-                tempColorArray := [(darkArray[1] + rOffset), (darkArray[2] + gOffset), (darkArray[3] + bOffset)]
-                tempColor := convertToHex(tempColorArray)
-                returnMap[tempColor] := 1
-            }
-        }
-    }
-    return returnMap
-}
-
-convertToHex(arr) {
-    ; v2 Formatierung
-    return Format("0xFF{:02X}{:02X}{:02X}", arr[1], arr[2], arr[3])
-}
-
-convertToRGB(colorStr) {
-    red := "0x" SubStr(colorStr, 3, 2)
-    green := "0x" SubStr(colorStr, 5, 2)
-    blue := "0x" SubStr(colorStr, 7, 2)
-
-    return [Integer(red), Integer(green), Integer(blue)]
-}
 
 OpenHPFinder(*) {
     ImageMakerGui.Opt("+Disabled")
