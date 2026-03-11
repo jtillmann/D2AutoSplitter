@@ -456,11 +456,6 @@ Start(*) {
 
     loop {
         WriteLog("Start loop ")
-        if (breakLoop) {
-            WriteLog("Start loop breakLoop")
-            break
-        }
-
         txtTimer.Value := ""
         previousSplitWasBossDeath := 0
 
@@ -596,6 +591,7 @@ OnStartKeyPressed(*) {
     if (splitKey != "") {
         Send("{" splitKey "}")
     }
+    Start()
 }
 
 OnResetKeyPressed(*) {
