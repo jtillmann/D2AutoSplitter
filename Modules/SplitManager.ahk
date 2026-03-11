@@ -20,7 +20,6 @@ global splitEditMode := ""
 SplitManagerGui.Add("Button", "x10 y395 w150 h30", "Add New Split").OnEvent("Click", OnAddButtonClick)
 SplitManagerGui.Add("Button", "x360 y395 w150 h30", "Save && Close").OnEvent("Click", OnCloseSaveButtonClick)
 
-; 4. Die Eingabefelder (Standardmäßig versteckt! Y-Achsen um +125 nach unten verschoben)
 global lblSplitName := SplitManagerGui.Add("Text", "x10 y435 w100 Hidden", "Name:")
 global edSplitName := SplitManagerGui.Add("Edit", "x10 y450 w120 Hidden", "")
 
@@ -35,7 +34,6 @@ global edSplitThresh := SplitManagerGui.Add("Edit", "x345 y450 w60 Hidden", "0.9
 global lblSplitDelay := SplitManagerGui.Add("Text", "x415 y435 w60 Hidden", "Delay:")
 global edSplitDelay := SplitManagerGui.Add("Edit", "x415 y450 w60 Hidden", "0")
 
-; 5. Die kontextbezogenen Aktions-Buttons (Versteckt! Y-Achse auf 490)
 global btnSaveEdit := SplitManagerGui.Add("Button", "x10 y490 w60 h30 Hidden", "Save")
 btnSaveEdit.OnEvent("Click", OnSaveSplitButtonClick)
 
@@ -53,6 +51,59 @@ btnDownEdit.OnEvent("Click", OnDownButtonClick)
 
 global btnCancelEdit := SplitManagerGui.Add("Button", "x450 y490 w60 h30 Hidden", "Cancel")
 btnCancelEdit.OnEvent("Click", OnCancelButtonClick)
+
+OpenSplitManager(*) {
+    global SplitManagerGui, MainGui, lvSplits, ddlSplitImage, SelectedFile
+    ; ==========================================================
+    ; NEU: Den aktuellen Run sofort stoppen und zurücksetzen!
+    ; (Falls deine Funktion z.B. BtnResetClick heißt, ändere das hier)
+    ; ==========================================================
+    try OnResetButtonClick()
+
+    CheckForDeletedImages()
+
+    MainGui.Opt("+Disabled")
+
+    ; 1. Dropdown-Liste mit frischen Bildern füllen
+    frischeBilder := ["None", "Boss Death", "Boss Healthbar"]
+    infoPfad := A_ScriptDir "\Split_Images\image_info.txt"
+
+    if FileExist(infoPfad) {
+        infoText := FileRead(infoPfad)
+        loop parse, infoText, "&" {
+            if (A_LoopField == "")
+                continue
+            bildName := StrSplit(A_LoopField, ",")[1]
+            frischeBilder.Push(bildName)
+        }
+    }
+
+    ; Altes Dropdown leeren und mit der neuen Liste füllen
+    ddlSplitImage.Delete()
+    ddlSplitImage.Add(frischeBilder)
+
+    ; 2. Das ListView (die Tabelle) leeren und mit den Splits füllen
+    lvSplits.Delete()
+
+    if (SelectedFile != "" && FileExist(SelectedFile)) {
+        splitText := FileRead(SelectedFile)
+        loop parse, splitText, "&" {
+            if (A_LoopField == "")
+                continue
+
+            zeilenDaten := StrSplit(A_LoopField, ",")
+            ; Wenn die Zeile gültig ist (Name, Bild, Dummy, Thresh, Delay)
+            if (zeilenDaten.Length >= 5) {
+                lvSplits.Add("", zeilenDaten[1], zeilenDaten[2], zeilenDaten[3], zeilenDaten[4], zeilenDaten[5])
+            }
+        }
+    }
+    ; NEU: Sicherstellen, dass die Felder eingeklappt sind und das Fenster schrumpft
+    ToggleEditArea(false)
+
+    ; GUI anzeigen
+    SplitManagerGui.Show()
+}
 
 OnCloseSplitManager(*) {
     global SplitManagerGui, MainGui
@@ -92,7 +143,6 @@ OnCloseSaveButtonClick(*) {
     outputString := ""
     rowCount := lvSplits.GetCount()
 
-    ; Das gesamte ListView Zeile für Zeile auslesen
     loop rowCount {
         row := A_Index
         name := lvSplits.GetText(row, 1)
@@ -105,16 +155,13 @@ OnCloseSaveButtonClick(*) {
         outputString .= (A_Index == 1 ? "" : "&") . line
     }
 
-    ; In die Datei schreiben, falls eine ausgewählt ist
     if (SelectedFile != "") {
         try FileDelete(SelectedFile)
         FileAppend(outputString, SelectedFile)
 
-        ; Das Dropdown im Haupt-GUI mit den neuen Splits füttern
         LoadSplitsFile(SelectedFile)
     }
 
-    ; Fenster schließen und Hauptmenü freigeben
     SplitManagerGui.Hide()
     SplitManagerGui.Opt("-Disabled")
     MainGui.Opt("-Disabled")
@@ -128,8 +175,10 @@ OnSaveSplitButtonClick(*) {
         return
     }
 
-    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
+    image := ddlSplitImage.Text
+    dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value
+    delay := edSplitDelay.Value
 
     if (splitEditMode == "Edit") {
         row := lvSplits.GetNext(0)
@@ -139,7 +188,7 @@ OnSaveSplitButtonClick(*) {
         lvSplits.Add("", name, image, dummy, thresh, delay)
     }
 
-    ToggleEditArea(false) ; Versteckt alles nach dem Speichern
+    ToggleEditArea(false)
 }
 
 OnSaveAsNewSplitButtonClick(*) {
@@ -149,8 +198,10 @@ OnSaveAsNewSplitButtonClick(*) {
         return
     }
 
-    image := ddlSplitImage.Text, dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value, delay := edSplitDelay.Value
+    image := ddlSplitImage.Text
+    dummy := chkSplitDummy.Value ? "1" : "0"
+    thresh := edSplitThresh.Value
+    delay := edSplitDelay.Value
 
     row := lvSplits.GetNext(0)
     if (row > 0)
@@ -172,10 +223,17 @@ OnUpButtonClick(*) {
     if (row <= 1)
         return
 
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
-        row, 4), c5 := lvSplits.GetText(row, 5)
-    p1 := lvSplits.GetText(row - 1, 1), p2 := lvSplits.GetText(row - 1, 2), p3 := lvSplits.GetText(row - 1, 3), p4 :=
-    lvSplits.GetText(row - 1, 4), p5 := lvSplits.GetText(row - 1, 5)
+    c1 := lvSplits.GetText(row, 1)
+    c2 := lvSplits.GetText(row, 2)
+    c3 := lvSplits.GetText(row, 3)
+    c4 := lvSplits.GetText(row, 4)
+    c5 := lvSplits.GetText(row, 5)
+
+    p1 := lvSplits.GetText(row - 1, 1)
+    p2 := lvSplits.GetText(row - 1, 2)
+    p3 := lvSplits.GetText(row - 1, 3)
+    p4 := lvSplits.GetText(row - 1, 4)
+    p5 := lvSplits.GetText(row - 1, 5)
 
     lvSplits.Modify(row - 1, "", c1, c2, c3, c4, c5)
     lvSplits.Modify(row, "", p1, p2, p3, p4, p5)
@@ -189,14 +247,97 @@ OnDownButtonClick(*) {
     if (row == 0 || row == lvSplits.GetCount())
         return
 
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2), c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(
-        row, 4), c5 := lvSplits.GetText(row, 5)
-    n1 := lvSplits.GetText(row + 1, 1), n2 := lvSplits.GetText(row + 1, 2), n3 := lvSplits.GetText(row + 1, 3), n4 :=
-    lvSplits.GetText(row + 1, 4), n5 := lvSplits.GetText(row + 1, 5)
+    c1 := lvSplits.GetText(row, 1)
+    c2 := lvSplits.GetText(row, 2)
+    c3 := lvSplits.GetText(row, 3)
+    c4 := lvSplits.GetText(row, 4)
+    c5 := lvSplits.GetText(row, 5)
+
+    n1 := lvSplits.GetText(row + 1, 1)
+    n2 := lvSplits.GetText(row + 1, 2)
+    n3 := lvSplits.GetText(row + 1, 3)
+    n4 := lvSplits.GetText(row + 1, 4)
+    n5 := lvSplits.GetText(row + 1, 5)
 
     lvSplits.Modify(row + 1, "", c1, c2, c3, c4, c5)
     lvSplits.Modify(row, "", n1, n2, n3, n4, n5)
 
     lvSplits.Modify(row + 1, "Select Focus")
     lvSplits.Modify(row, "-Select -Focus")
+}
+
+ToggleEditArea(show, mode := "") {
+    global splitEditMode := mode
+
+    ; 1. Eingabefelder ein- oder ausblenden
+    lblSplitName.Visible := show, edSplitName.Visible := show
+    lblSplitImage.Visible := show, ddlSplitImage.Visible := show
+    chkSplitDummy.Visible := show, lblSplitThresh.Visible := show
+    edSplitThresh.Visible := show, lblSplitDelay.Visible := show, edSplitDelay.Visible := show
+
+    ; 2. Save und Cancel sind IMMER da, wenn die Felder sichtbar sind
+    btnSaveEdit.Visible := show
+    btnCancelEdit.Visible := show
+
+    ; 3. Edit-Buttons (Save As New, Delete, Up, Down) nur im "Edit"-Modus zeigen
+    showEditButtons := (show && mode == "Edit")
+    btnSaveAsNew.Visible := showEditButtons
+    btnDeleteEdit.Visible := showEditButtons
+    btnUpEdit.Visible := showEditButtons
+    btnDownEdit.Visible := showEditButtons
+
+    ; 4. Wenn wir ausblenden oder einen NEUEN Split anlegen, Felder leeren
+    if (!show || mode == "Add") {
+        edSplitName.Value := ""
+        try ddlSplitImage.Choose("None")
+        chkSplitDummy.Value := 0
+        edSplitThresh.Value := "0.95"
+        edSplitDelay.Value := "0"
+
+        ; Auswahl im ListView aufheben
+        if (mode != "Edit")
+            lvSplits.Modify(0, "-Select -Focus")
+    }
+
+    SplitManagerGui.Show("AutoSize")
+}
+
+CheckForDeletedImages() {
+    try {
+        imageInfoString := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
+    } catch {
+        return
+    }
+
+    imageDataArray := StrSplit(imageInfoString, "&")
+    newInfoString := ""
+
+    i := 1
+    ; While-Schleife ist sicherer, da wir Elemente aus dem Array löschen könnten
+    while (i <= imageDataArray.Length) {
+        existingImageData := imageDataArray[i]
+
+        if (i == 1) {
+            newInfoString := existingImageData
+        } else if (i <= 3) {
+            newInfoString .= "&" existingImageData
+        } else {
+            temporaryArray := StrSplit(existingImageData, ",")
+            temporaryImageName := temporaryArray[1]
+            temporaryFilePath := A_ScriptDir "\Split_Images\" temporaryImageName ".png"
+
+            if (!FileExist(temporaryFilePath)) {
+                ; Wenn das Bild physisch gelöscht wurde, aus dem Array entfernen
+                imageDataArray.RemoveAt(i)
+                continue ; Wir erhöhen 'i' nicht, da das nächste Element nachgerückt ist
+            } else {
+                newInfoString .= "&" existingImageData
+            }
+        }
+        i++
+    }
+
+    ; Aktualisierte Liste speichern
+    try FileDelete(A_ScriptDir "\Split_Images\image_info.txt")
+    FileAppend(newInfoString, A_ScriptDir "\Split_Images\image_info.txt")
 }

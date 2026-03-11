@@ -16,7 +16,7 @@ CoordMode "Pixel", "Screen"
 global WinTitle := "LiveSplit"
 
 WriteLog(text) {
-    ; FileAppend(A_NowUTC ": " text "`n", "logfile.txt")
+    FileAppend(A_NowUTC ": " text "`n", "logfile.txt")
 }
 
 ; --- Ordner und Einstellungsdateien prüfen ---
@@ -168,25 +168,25 @@ MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 ; In v2 speichern wir die Control-Objekte in Variablen, um später darauf zuzugreifen
 tmpVar1 := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
 if (tmpVar1 != "") {
-    try Hotkey("$" tmpVar1, BtnStartClick)
+    try Hotkey("$" tmpVar1, OnStartButtonClick)
 }
 hkControl1 := MainGui.Add("Hotkey", "x570 y290 w130 h21 vHotKey1", tmpVar1)
 
 tmpVar2 := (hotKeySettingsArray.Has(2)) ? hotKeySettingsArray[2] : ""
 if (tmpVar2 != "") {
-    try Hotkey("$" tmpVar2, ResetAutoSplitter)
+    try Hotkey("$" tmpVar2, OnResetKeyPressed)
 }
 hkControl2 := MainGui.Add("Hotkey", "x570 y320 w130 h21 vHotKey2", tmpVar2)
 
 tmpVar3 := (hotKeySettingsArray.Has(3)) ? hotKeySettingsArray[3] : ""
 if (tmpVar3 != "") {
-    try Hotkey("$" tmpVar3, SkipSplit)
+    try Hotkey("$" tmpVar3, OnSkipKeyPress)
 }
 hkControl3 := MainGui.Add("Hotkey", "x570 y380 w130 h21 vHotKey3", tmpVar3)
 
 tmpVar4 := (hotKeySettingsArray.Has(4)) ? hotKeySettingsArray[4] : ""
 if (tmpVar4 != "") {
-    try Hotkey("$" tmpVar4, UndoSplit)
+    try Hotkey("$" tmpVar4, OnUndoKeyPressed)
 }
 hkControl4 := MainGui.Add("Hotkey", "x570 y350 w130 h21 vHotKey4", tmpVar4)
 
@@ -207,17 +207,17 @@ picCurrentSplit := MainGui.Add("Picture", "x10 y70 w300 h300 +Border", "") ; vCu
 
 MainGui.Add("Text", "x490 y290 w60 h20 +0x200", "Start/Split")
 MainGui.Add("Text", "x490 y320 w60 h20 +0x200", "Reset")
-MainGui.Add("Text", "x490 y350 w60 h20 +0x200", "Skip Split")
-MainGui.Add("Text", "x490 y380 w60 h20 +0x200", "Undo Split")
+MainGui.Add("Text", "x490 y380 w60 h20 +0x200", "Skip Split")
+MainGui.Add("Text", "x490 y350 w60 h20 +0x200", "Undo Split")
 MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 
 btnStart := MainGui.Add("Button", "x490 y180 w210 h40", "Start")
-btnStart.OnEvent("Click", BtnStartClick)
+btnStart.OnEvent("Click", OnStartButtonClick)
 
 btnReset := MainGui.Add("Button", "x490 y130 w210 h40", "Reset")
-btnReset.OnEvent("Click", StopOnlyAutoSplitter)
-MainGui.Add("Button", "x600 y80 w100 h40", "Next >").OnEvent("Click", SkipOnlyAutoSplitter)
-MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", UndoOnlyAutoSplitter)
+btnReset.OnEvent("Click", OnResetButtonClick)
+MainGui.Add("Button", "x600 y80 w100 h40", "Next >").OnEvent("Click", OnSkipButtonClick)
+MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", OnUndoButtonClick)
 
 chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24", "") ; vStartOnFirstInput
 txtStartFirstTitle := MainGui.Add("Text", "x510 y230 w150 h20 +0x200", "Start waits for First Input")
@@ -373,11 +373,11 @@ loop 4 {
 MainGui.Show("w720 h450")
 
 ; Hotkeys für Spiel-Inputs (w, a, s, d etc.)
-; Diese rufen die Funktion 'InputKeyPressed' auf
+; Diese rufen die Funktion 'OnFirstInputKeyPressed' auf
 MovementKeys := ["w", "a", "s", "d", "Space", "3", "WheelDown", "WheelUp", "e"]
 for key in MovementKeys {
-    Hotkey("~$" . key, (*) => InputKeyPressed())
-    Hotkey("~+$" . key, (*) => InputKeyPressed()) ; Auch für Shift+Taste
+    Hotkey("~$" . key, (*) => OnFirstInputKeyPressed())
+    Hotkey("~+$" . key, (*) => OnFirstInputKeyPressed()) ; Auch für Shift+Taste
 }
 
 ; ===================================================
@@ -405,10 +405,10 @@ Sethotkeys(*) {
             hotKeySettingsArray[idx] := newKey
 
             ; Funktion zuweisen basierend auf Index
-            callback := (idx = 1) ? StartKeyPressed :
-                (idx = 2) ? ResetAutoSplitter :
-                    (idx = 3) ? SkipSplit :
-                        (idx = 4) ? UndoSplit : Capture
+            callback := (idx = 1) ? OnStartKeyPressed :
+                (idx = 2) ? OnResetKeyPressed :
+                    (idx = 3) ? OnSkipKeyPress :
+                        (idx = 4) ? OnUndoKeyPressed : Capture
 
             try Hotkey("$" newKey, callback)
         }
@@ -424,402 +424,12 @@ Sethotkeys(*) {
     FileAppend(hotkeySettingsString, A_ScriptDir "\Dependencies\settings.txt")
 }
 
-SaveSplitFileEmpty(*) {
-    global SelectedFile
-
-    ; Hauptfenster sperren, während das Dialogfenster offen ist
-    MainGui.Opt("+Disabled")
-
-    ; Wir nutzen einen Loop anstelle des alten "Goto, inputtingSplitFileName"
-    loop {
-        ib := InputBox("What would you like to name your Splits?", "Create New Splits")
-
-        ; Wenn der User auf "Abbrechen" klickt oder das Fenster schließt
-        if (ib.Result == "Cancel" || ib.Result == "Timeout") {
-            break
-        }
-
-        tempSplitFileName := ib.Value ".txt"
-        targetFile := A_WorkingDir "\Split_Files\" tempSplitFileName
-
-        ; Prüfen, ob die Datei schon existiert
-        if FileExist(targetFile) {
-            ; MsgBox gibt in v2 direkt den gedrückten Button als String zurück
-            if (MsgBox("A split file with this name already exists.`nWould you like to overwrite it?", "Warning",
-                "YesNo") == "No") {
-                continue ; Startet den Loop von vorne (neue Eingabe)
-            }
-        }
-
-        ; Datei anlegen und mit Standardwerten füllen
-        stringToSaveToFile := "None,None,0,0.9,7"
-        try FileDelete(targetFile)
-        FileAppend(stringToSaveToFile, targetFile)
-
-        ; Die neue Datei direkt laden
-        LoadSplitsFile(targetFile)
-        break ; Schleife beenden, da wir erfolgreich waren
-    }
-
-    ; Hauptfenster wieder entsperren
-    MainGui.Opt("-Disabled")
-    MainGui.Show()
-}
-
-; ===================================================
-; Split-Dateien laden und speichern
-; ===================================================
-
-; ===================================================
-; Split Manager öffnen & Bilder prüfen
-; ===================================================
-
-OpenSplitManager(*) {
-    global SplitManagerGui, MainGui, lvSplits, ddlSplitImage, SelectedFile
-    ; ==========================================================
-    ; NEU: Den aktuellen Run sofort stoppen und zurücksetzen!
-    ; (Falls deine Funktion z.B. BtnResetClick heißt, ändere das hier)
-    ; ==========================================================
-    try StopOnlyAutoSplitter()
-
-    MainGui.Opt("+Disabled")
-
-    ; 1. Dropdown-Liste mit frischen Bildern füllen
-    frischeBilder := ["None", "Boss Death", "Boss Healthbar"]
-    infoPfad := A_ScriptDir "\Split_Images\image_info.txt"
-
-    if FileExist(infoPfad) {
-        infoText := FileRead(infoPfad)
-        loop parse, infoText, "&" {
-            if (A_LoopField == "")
-                continue
-            bildName := StrSplit(A_LoopField, ",")[1]
-            frischeBilder.Push(bildName)
-        }
-    }
-
-    ; Altes Dropdown leeren und mit der neuen Liste füllen
-    ddlSplitImage.Delete()
-    ddlSplitImage.Add(frischeBilder)
-
-    ; 2. Das ListView (die Tabelle) leeren und mit den Splits füllen
-    lvSplits.Delete()
-
-    if (SelectedFile != "" && FileExist(SelectedFile)) {
-        splitText := FileRead(SelectedFile)
-        loop parse, splitText, "&" {
-            if (A_LoopField == "")
-                continue
-
-            zeilenDaten := StrSplit(A_LoopField, ",")
-            ; Wenn die Zeile gültig ist (Name, Bild, Dummy, Thresh, Delay)
-            if (zeilenDaten.Length >= 5) {
-                lvSplits.Add("", zeilenDaten[1], zeilenDaten[2], zeilenDaten[3], zeilenDaten[4], zeilenDaten[5])
-            }
-        }
-    }
-    ; NEU: Sicherstellen, dass die Felder eingeklappt sind und das Fenster schrumpft
-    ToggleEditArea(false)
-
-    ; GUI anzeigen
-    SplitManagerGui.Show()
-}
-
-; ===================================================
-; Split Manager: UI Toggle Hilfsfunktion
-; ===================================================
-ToggleEditArea(show, mode := "") {
-    global splitEditMode := mode
-
-    ; 1. Eingabefelder ein- oder ausblenden
-    lblSplitName.Visible := show, edSplitName.Visible := show
-    lblSplitImage.Visible := show, ddlSplitImage.Visible := show
-    chkSplitDummy.Visible := show, lblSplitThresh.Visible := show
-    edSplitThresh.Visible := show, lblSplitDelay.Visible := show, edSplitDelay.Visible := show
-
-    ; 2. Save und Cancel sind IMMER da, wenn die Felder sichtbar sind
-    btnSaveEdit.Visible := show
-    btnCancelEdit.Visible := show
-
-    ; 3. Edit-Buttons (Save As New, Delete, Up, Down) nur im "Edit"-Modus zeigen
-    showEditButtons := (show && mode == "Edit")
-    btnSaveAsNew.Visible := showEditButtons
-    btnDeleteEdit.Visible := showEditButtons
-    btnUpEdit.Visible := showEditButtons
-    btnDownEdit.Visible := showEditButtons
-
-    ; 4. Wenn wir ausblenden oder einen NEUEN Split anlegen, Felder leeren
-    if (!show || mode == "Add") {
-        edSplitName.Value := ""
-        try ddlSplitImage.Choose("None")
-        chkSplitDummy.Value := 0
-        edSplitThresh.Value := "0.95"
-        edSplitDelay.Value := "0"
-
-        ; Auswahl im ListView aufheben
-        if (mode != "Edit")
-            lvSplits.Modify(0, "-Select -Focus")
-    }
-
-    SplitManagerGui.Show("AutoSize")
-}
-; ===================================================
-; Split Manager: ListView Button-Events
-; ===================================================
-
-; Klick auf eine Zeile in der Liste
-
-; Klick auf "Add New Split" (Hauptmenü)
-
-; Klick auf "Save"
-
-; Klick auf "Save As New"
-
-; Klick auf "Delete"
-
-; ===================================================
-; Split Image Maker öffnen
-; ===================================================
-
-OpenSplitImageMaker(*) {
-    global ImageMakerGui, MainGui, ScreenshotGui
-
-    ; Hauptfenster sperren, damit man nicht parallel darin klicken kann
-    MainGui.Opt("+Disabled")
-
-    ; Image Maker GUI zentriert und in der richtigen Größe anzeigen
-    ImageMakerGui.Show("Center h550 w1244")
-
-    ; Das Skript pausiert hier, bis das Fenster "Split Image Maker" geschlossen wird
-    WinWaitClose("Split Image Maker")
-
-    ; Hauptfenster wieder freigeben
-    MainGui.Opt("-Disabled")
-
-    ; Falls die Screenshot-Oberfläche noch existiert/offen ist, abbrechen (verstecken)
-    if (Type(ScreenshotGui) == "Gui") {
-        ScreenshotGui.Hide()
-    }
-
-    ; Hauptfenster wieder in den Vordergrund holen
-    MainGui.Show()
-}
-
-checkForDeletedImages() {
-    try {
-        imageInfoString := FileRead(A_ScriptDir "\Split_Images\image_info.txt")
-    } catch {
-        return
-    }
-
-    imageDataArray := StrSplit(imageInfoString, "&")
-    newInfoString := ""
-
-    i := 1
-    ; While-Schleife ist sicherer, da wir Elemente aus dem Array löschen könnten
-    while (i <= imageDataArray.Length) {
-        existingImageData := imageDataArray[i]
-
-        if (i == 1) {
-            newInfoString := existingImageData
-        } else if (i <= 3) {
-            newInfoString .= "&" existingImageData
-        } else {
-            temporaryArray := StrSplit(existingImageData, ",")
-            temporaryImageName := temporaryArray[1]
-            temporaryFilePath := A_ScriptDir "\Split_Images\" temporaryImageName ".png"
-
-            if (!FileExist(temporaryFilePath)) {
-                ; Wenn das Bild physisch gelöscht wurde, aus dem Array entfernen
-                imageDataArray.RemoveAt(i)
-                continue ; Wir erhöhen 'i' nicht, da das nächste Element nachgerückt ist
-            } else {
-                newInfoString .= "&" existingImageData
-            }
-        }
-        i++
-    }
-
-    ; Aktualisierte Liste speichern
-    try FileDelete(A_ScriptDir "\Split_Images\image_info.txt")
-    FileAppend(newInfoString, A_ScriptDir "\Split_Images\image_info.txt")
-}
-
-LoadSplitsToUse(*) {
-    global SelectedFile
-    MainGui.Opt("+Disabled") ; Fenster sperren
-
-    selFile := FileSelect(3, A_WorkingDir "\Split_Files\", "Open a split file", "Text Documents (*.txt; *.doc)")
-
-    if (selFile != "") {
-        LoadSplitsFile(selFile)
-    }
-
-    MainGui.Opt("-Disabled")
-    MainGui.Show()
-}
-
-LoadSplitsFile(path) {
-    global currentlyLoadedSplits, SelectedFile
-    try {
-        splitFileDataString := FileRead(path)
-        currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
-        SelectedFile := path
-
-        ; GUI aktualisieren
-        splitName := RegExReplace(path, ".*\\") ; Extrahiert Dateinamen
-        txtLoadedSplits.Value := splitName
-        btnEditSplits.Visible := true
-    } catch {
-        MsgBox("Fehler beim Laden der Datei.")
-    }
-}
-
-; ===================================================
-; Split Manager: ListView Button-Events
-; ===================================================
-
-BtnAddSplitToList(*) {
-    global edSplitName, ddlSplitImage, chkSplitDummy, edSplitThresh, edSplitDelay, lvSplits
-
-    name := edSplitName.Value
-    if (name == "") {
-        MsgBox("Bitte gib dem Split einen Namen!")
-        return
-    }
-
-    image := ddlSplitImage.Text
-    dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value
-    delay := edSplitDelay.Value
-
-    ; Einfach ans Ende der Liste anhängen
-    lvSplits.Add("", name, image, dummy, thresh, delay)
-
-    ; Textfeld für den Namen leeren, damit man schnell den nächsten eintragen kann
-    edSplitName.Value := ""
-}
-
-BtnUpdateSplitInList(*) {
-    global edSplitName, ddlSplitImage, chkSplitDummy, edSplitThresh, edSplitDelay, lvSplits
-
-    row := lvSplits.GetNext(0) ; Ausgewählte Zeile finden
-    if (row == 0) {
-        MsgBox("Bitte wähle zuerst einen Split in der Liste aus, den du aktualisieren möchtest.")
-        return
-    }
-
-    name := edSplitName.Value
-    image := ddlSplitImage.Text
-    dummy := chkSplitDummy.Value ? "1" : "0"
-    thresh := edSplitThresh.Value
-    delay := edSplitDelay.Value
-
-    ; Die ausgewählte Zeile mit den neuen Werten überschreiben
-    lvSplits.Modify(row, "", name, image, dummy, thresh, delay)
-}
-
-BtnRemoveSplitFromList(*) {
-    global lvSplits
-
-    row := lvSplits.GetNext(0)
-    if (row == 0) {
-        return
-    }
-
-    ; Zeile einfach löschen - AHK rückt den Rest automatisch auf!
-    lvSplits.Delete(row)
-}
-
-BtnMoveSplitUp(*) {
-    global lvSplits
-
-    row := lvSplits.GetNext(0)
-    ; Wenn nichts ausgewählt ist oder wir schon ganz oben sind, mach nichts
-    if (row <= 1)
-        return
-
-    ; Daten der aktuellen Zeile holen
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2)
-    c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(row, 4)
-    c5 := lvSplits.GetText(row, 5)
-
-    ; Daten der Zeile darüber holen
-    p1 := lvSplits.GetText(row - 1, 1), p2 := lvSplits.GetText(row - 1, 2)
-    p3 := lvSplits.GetText(row - 1, 3), p4 := lvSplits.GetText(row - 1, 4)
-    p5 := lvSplits.GetText(row - 1, 5)
-
-    ; Werte tauschen
-    lvSplits.Modify(row - 1, "", c1, c2, c3, c4, c5)
-    lvSplits.Modify(row, "", p1, p2, p3, p4, p5)
-
-    ; Die Markierung mit nach oben nehmen
-    lvSplits.Modify(row - 1, "Select Focus")
-    lvSplits.Modify(row, "-Select -Focus")
-}
-
-BtnMoveSplitDown(*) {
-    global lvSplits
-
-    row := lvSplits.GetNext(0)
-    ; Wenn nichts ausgewählt ist oder wir schon ganz unten sind
-    if (row == 0 || row == lvSplits.GetCount())
-        return
-
-    ; Daten der aktuellen Zeile
-    c1 := lvSplits.GetText(row, 1), c2 := lvSplits.GetText(row, 2)
-    c3 := lvSplits.GetText(row, 3), c4 := lvSplits.GetText(row, 4)
-    c5 := lvSplits.GetText(row, 5)
-
-    ; Daten der Zeile darunter
-    n1 := lvSplits.GetText(row + 1, 1), n2 := lvSplits.GetText(row + 1, 2)
-    n3 := lvSplits.GetText(row + 1, 3), n4 := lvSplits.GetText(row + 1, 4)
-    n5 := lvSplits.GetText(row + 1, 5)
-
-    ; Werte tauschen
-    lvSplits.Modify(row + 1, "", c1, c2, c3, c4, c5)
-    lvSplits.Modify(row, "", n1, n2, n3, n4, n5)
-
-    ; Markierung mit nach unten nehmen
-    lvSplits.Modify(row + 1, "Select Focus")
-    lvSplits.Modify(row, "-Select -Focus")
-}
-
-; ===================================================
-; Speichern und Schließen
-; ===================================================
-
 ; ===================================================
 ; Haupt-Logik des AutoSplitters
 ; ===================================================
-BtnStartClick(*) {
-    global isWaitingForFirstInput, chkStartFirst, btnStart, txtWaitingFirstInput, btnReset
-
-    ; Wenn wir bereits warten, passiert beim erneuten Klicken nichts
-    if (isWaitingForFirstInput)
-        return
-
-    ; Wenn das Häkchen gesetzt ist, gehen wir in den "Warte-Modus"
-    isWaitingForFirstInput := true
-    if (chkStartFirst.Value == 1) {
-
-        btnReset.focus()
-
-        ; GUI umschalten
-        btnStart.Visible := false
-        chkStartFirst.Visible := false
-        txtWaitingFirstInput.Visible := true
-
-        return ; WICHTIG: Hier brechen wir ab! Der echte Start passiert noch nicht.
-    }
-
-    ; Wenn das Häkchen NICHT gesetzt ist, sofort ganz normal starten:
-    ExecuteActualStart()
-}
-
-ExecuteActualStart(*) {
+Start(*) {
     global currentlyLoadedSplits, currentlyLoadedSplitIndex, breakLoop, nLoops
-    global splitButton, StartOnFirstInput
+    global StartOnFirstInput, imageDataArray
 
     if (currentlyLoadedSplits.Length == 0 || currentlyLoadedSplits[1] == "") {
         MsgBox("Bitte zuerst eine Split-Datei laden!")
@@ -844,16 +454,12 @@ ExecuteActualStart(*) {
         try Hotkey("$" hotKeySettingsArray[1], "Off")
     }
 
-    ; ... (Anfang von StartAutoSplitter bleibt gleich) ...
-    ; Füge imageDataArray ganz oben bei den globals der Funktion hinzu!
-    global currentlyLoadedSplits, currentlyLoadedSplitIndex, breakLoop, nLoops
-    global splitButton, StartOnFirstInput, imageDataArray
-
-    ; ...
-
     loop {
-        if (breakLoop)
+        WriteLog("Start loop ")
+        if (breakLoop) {
+            WriteLog("Start loop breakLoop")
             break
+        }
 
         txtTimer.Value := ""
         previousSplitWasBossDeath := 0
@@ -902,7 +508,7 @@ ExecuteActualStart(*) {
 
         if (currentSplitImageName == "None") {
             MsgBox("Kein Bild für Split " currentlyLoadedSplitIndex " ausgewählt.")
-            StopOnlyAutoSplitter()
+            OnResetButtonClick()
             return
         }
 
@@ -922,46 +528,29 @@ ExecuteActualStart(*) {
         ; Suche starten
         lookingFor(funcToUse, currentSplitData[4], previousSplitWasBossDeath, activeImageInfo, pixelArray)
 
-        if (currentlyLoadedSplitIndex > currentlyLoadedSplits.Length || currentlyLoadedSplitIndex < 1)
+        if (currentlyLoadedSplitIndex > currentlyLoadedSplits.Length || currentlyLoadedSplitIndex < 1) {
+            WriteLog("Start loop index end")
             break
+        }
     }
 
     if (hotKeySettingsArray.Has(1) && hotKeySettingsArray[1] != "") {
         try Hotkey("$" hotKeySettingsArray[1], "On")
     }
-    StopOnlyAutoSplitter()
+
+    OnResetButtonClick()
 }
 
-; ===================================================
-; Hotkey-Eingabe Reaktionen
-; ===================================================
-HandleFirstInput() {
-    global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
-
-    ; Reagiert NUR, wenn wir vorher auf "Start" gedrückt haben und die Checkbox an war
-    if (isWaitingForFirstInput) {
-        isWaitingForFirstInput := false ; Sofort beenden, damit es nicht doppelt auslöst
-
-        ; GUI wieder in den Normalzustand versetzen
-        txtWaitingFirstInput.Visible := false
-        btnStart.Visible := true
-        chkStartFirst.Visible := true
-
-        ; Jetzt den eigentlichen Startbefehl ausführen!
-        ExecuteActualStart()
-    }
-}
-
-InputKeyPressed(*) {
+OnFirstInputKeyPressed(*) {
     global currentlyLoadedSplitIndex, hotKeySettingsArray, isWaitingForFirstInput
 
     ; Das aktive Fenster abfragen (v2 Syntax)
     activeWindow := WinGetTitle("A")
 
-    WriteLog("InputKeyPressed " currentlyLoadedSplitIndex " " isWaitingForFirstInput " " activeWindow)
+    WriteLog("OnFirstInputKeyPressed " currentlyLoadedSplitIndex " " isWaitingForFirstInput " " activeWindow)
 
     if (isWaitingForFirstInput && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
-        WriteLog("InputKeyPressed! Starting...")
+        WriteLog("OnFirstInputKeyPressed! Starting...")
 
         splitKey := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
         if (splitKey != "") {
@@ -969,19 +558,136 @@ InputKeyPressed(*) {
         }
 
         ; In v2 ersetzen wir 'GoSub StartAutoSplitter' durch einen simplen Funktionsaufruf
-        ExecuteActualStart()
+        Start()
     }
 }
 
-StartKeyPressed(*) {
+OnStartButtonClick(*) {
+    global isWaitingForFirstInput, chkStartFirst, btnStart, txtWaitingFirstInput, btnReset
+
+    ; Wenn wir bereits warten, passiert beim erneuten Klicken nichts
+    if (isWaitingForFirstInput)
+        return
+
+    ; Wenn das Häkchen gesetzt ist, gehen wir in den "Warte-Modus"
+    isWaitingForFirstInput := true
+    if (chkStartFirst.Value == 1) {
+
+        btnReset.focus()
+
+        ; GUI umschalten
+        btnStart.Visible := false
+        chkStartFirst.Visible := false
+        txtWaitingFirstInput.Visible := true
+
+        return ; WICHTIG: Hier brechen wir ab! Der echte Start passiert noch nicht.
+    }
+
+    ; Wenn das Häkchen NICHT gesetzt ist, sofort ganz normal starten:
+    Start()
+}
+
+OnStartKeyPressed(*) {
     global hotKeySettingsArray
     splitKey := (hotKeySettingsArray.Has(1)) ? hotKeySettingsArray[1] : ""
 
-    WriteLog("StartKeyPressed " splitKey)
+    WriteLog("OnStartKeyPressed " splitKey)
 
     if (splitKey != "") {
         Send("{" splitKey "}")
     }
+}
+
+OnResetKeyPressed(*) {
+    global hotKeySettingsArray
+    resetBtnStr := (hotKeySettingsArray.Has(2)) ? hotKeySettingsArray[2] : ""
+
+    if (resetBtnStr != "") {
+        Send("{" resetBtnStr "}")
+    }
+
+    btnStart.Text := "Start"
+    Reset()
+}
+
+OnResetButtonClick(*) {
+    Reset()
+}
+
+OnSkipKeyPress(*) {
+    global hotKeySettingsArray
+    skipBtnStr := (hotKeySettingsArray.Has(3)) ? hotKeySettingsArray[3] : ""
+
+    if (skipBtnStr != "") {
+        Send("{" skipBtnStr "}")
+    }
+
+    SkipSplit()
+}
+
+OnSkipButtonClick(*) {
+    SkipSplit()
+}
+
+OnUndoKeyPressed(*) {
+    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, hotKeySettingsArray
+    undoBtnStr := (hotKeySettingsArray.Has(4)) ? hotKeySettingsArray[4] : ""
+
+    if (undoBtnStr != "") {
+        Send("{" undoBtnStr "}")
+    }
+
+    UndoSplit()
+}
+
+OnUndoButtonClick(*) {
+    UndoSplit()
+}
+
+Reset() {
+    global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
+
+    ; Falls wir im Warte-Modus waren, diesen sofort abbrechen und GUI zurücksetzen
+    if (isWaitingForFirstInput) {
+        isWaitingForFirstInput := false
+        txtWaitingFirstInput.Visible := false
+        btnStart.Visible := true
+        chkStartFirst.Visible := true
+    }
+
+    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, bossHpHelper
+    breakLoop := 1
+    breakLoopLF := 1
+    currentlyLoadedSplitIndex := 999
+    bossHpHelper := 0
+
+    GUIupdate()
+
+    txtImageName.Value := ""
+    picCurrentSplit.Visible := false
+    txtTimer.Value := ""
+
+    chkStartFirst.Visible := true
+    txtStartFirstTitle.Visible := true
+
+    updateCorrectStats()
+}
+
+SkipSplit() {
+    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex
+    breakLoop := 1
+    breakLoopLF := 1
+    currentlyLoadedSplitIndex += 1
+    MsgBox("Split " currentlyLoadedSplitIndex " übersprungen.")
+    GUIupdate()
+}
+
+UndoSplit() {
+    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex
+    breakLoop := 1
+    breakLoopLF := 1
+    currentlyLoadedSplitIndex -= 1
+    GUIupdate()
 }
 
 lookingFor(funcName, thresh, isDoubleCheck, imgInfo, pArray) {
@@ -1009,10 +715,6 @@ lookingFor(funcName, thresh, isDoubleCheck, imgInfo, pArray) {
     }
 }
 
-; ===================================================
-; Timer Funktionen
-; ===================================================
-
 countLoops() {
     global nLoops
     txtLoopCount.Value := nLoops
@@ -1030,6 +732,8 @@ updateCorrectStats() {
 }
 
 doLoop() {
+    WriteLog("doLoop" " breakLoop: " breakLoop " breakLoopLF: " breakLoopLF " findFunc: " findFunc " threshold: " threshold
+    )
     global breakLoop, breakLoopLF, bossHpHelper, findFunc, threshold, doubleCheck
     global currentSplitImageInfo
 
@@ -1067,16 +771,12 @@ doLoop() {
             breakLoop := 1
             SetTimer(doLoop, 0)
             SetTimer(updateCorrectStats, 0)
-            UndoSplit() ; Funktionsaufruf statt GoTo
+            OnUndoKeyPressed() ; Funktionsaufruf statt GoTo
         }
     }
 
     global nLoops += 1
 }
-
-; ===================================================
-; Split-Verarbeitung
-; ===================================================
 
 handleSplit(pCorrect) {
     global currentlyLoadedSplitIndex, waitingForNextSplit, timerText, breakLoop
@@ -1128,6 +828,110 @@ waitForNextSplit() {
         waitingForNextSplit := 0
 }
 
+SaveSplitFileEmpty(*) {
+    global SelectedFile
+
+    ; Hauptfenster sperren, während das Dialogfenster offen ist
+    MainGui.Opt("+Disabled")
+
+    ; Wir nutzen einen Loop anstelle des alten "Goto, inputtingSplitFileName"
+    loop {
+        ib := InputBox("What would you like to name your Splits?", "Create New Splits")
+
+        ; Wenn der User auf "Abbrechen" klickt oder das Fenster schließt
+        if (ib.Result == "Cancel" || ib.Result == "Timeout") {
+            break
+        }
+
+        tempSplitFileName := ib.Value ".txt"
+        targetFile := A_WorkingDir "\Split_Files\" tempSplitFileName
+
+        ; Prüfen, ob die Datei schon existiert
+        if FileExist(targetFile) {
+            ; MsgBox gibt in v2 direkt den gedrückten Button als String zurück
+            if (MsgBox("A split file with this name already exists.`nWould you like to overwrite it?", "Warning",
+                "YesNo") == "No") {
+                continue ; Startet den Loop von vorne (neue Eingabe)
+            }
+        }
+
+        ; Datei anlegen und mit Standardwerten füllen
+        stringToSaveToFile := "None,None,0,0.9,7"
+        try FileDelete(targetFile)
+        FileAppend(stringToSaveToFile, targetFile)
+
+        ; Die neue Datei direkt laden
+        LoadSplitsFile(targetFile)
+        break ; Schleife beenden, da wir erfolgreich waren
+    }
+
+    ; Hauptfenster wieder entsperren
+    MainGui.Opt("-Disabled")
+    MainGui.Show()
+}
+
+; ===================================================
+; Split Image Maker öffnen
+; ===================================================
+
+OpenSplitImageMaker(*) {
+    global ImageMakerGui, MainGui, ScreenshotGui
+
+    ; Hauptfenster sperren, damit man nicht parallel darin klicken kann
+    MainGui.Opt("+Disabled")
+
+    ; Image Maker GUI zentriert und in der richtigen Größe anzeigen
+    ImageMakerGui.Show("Center h550 w1244")
+
+    ; Das Skript pausiert hier, bis das Fenster "Split Image Maker" geschlossen wird
+    WinWaitClose("Split Image Maker")
+
+    ; Hauptfenster wieder freigeben
+    MainGui.Opt("-Disabled")
+
+    ; Falls die Screenshot-Oberfläche noch existiert/offen ist, abbrechen (verstecken)
+    if (Type(ScreenshotGui) == "Gui") {
+        ScreenshotGui.Hide()
+    }
+
+    ; Hauptfenster wieder in den Vordergrund holen
+    MainGui.Show()
+}
+
+LoadSplitsToUse(*) {
+    global SelectedFile
+    MainGui.Opt("+Disabled") ; Fenster sperren
+
+    selFile := FileSelect(3, A_WorkingDir "\Split_Files\", "Open a split file", "Text Documents (*.txt; *.doc)")
+
+    if (selFile != "") {
+        LoadSplitsFile(selFile)
+    }
+
+    MainGui.Opt("-Disabled")
+    MainGui.Show()
+}
+
+LoadSplitsFile(path) {
+    global currentlyLoadedSplits, SelectedFile
+    try {
+        splitFileDataString := FileRead(path)
+        currentlyLoadedSplits := StrSplit(splitFileDataString, "&")
+        SelectedFile := path
+
+        ; GUI aktualisieren
+        splitName := RegExReplace(path, ".*\\") ; Extrahiert Dateinamen
+        txtLoadedSplits.Value := splitName
+        btnEditSplits.Visible := true
+    } catch {
+        MsgBox("Fehler beim Laden der Datei.")
+    }
+}
+
+; ===================================================
+; Timer Funktionen
+; ===================================================
+
 ; ===================================================
 ; GUI Updates & Split-Steuerung
 ; ===================================================
@@ -1147,91 +951,8 @@ GUIupdate() {
     txtPrev.Value := hPrev
     txtCurr.Value := hCurr
     txtNext.Value := hNext
-}
 
-ResetAutoSplitter(*) {
-    global hotKeySettingsArray
-    resetBtnStr := (hotKeySettingsArray.Has(2)) ? hotKeySettingsArray[2] : ""
-
-    if (resetBtnStr != "") {
-        Send("{" resetBtnStr "}")
-    }
-
-    btnStart.Text := "Start"
-    StopOnlyAutoSplitter()
-}
-
-StopOnlyAutoSplitter(*) {
-    global isWaitingForFirstInput, btnStart, chkStartFirst, txtWaitingFirstInput
-
-    ; Falls wir im Warte-Modus waren, diesen sofort abbrechen und GUI zurücksetzen
-    if (isWaitingForFirstInput) {
-        isWaitingForFirstInput := false
-        txtWaitingFirstInput.Visible := false
-        btnStart.Visible := true
-        chkStartFirst.Visible := true
-    }
-
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, bossHpHelper
-    breakLoop := 1
-    breakLoopLF := 1
-    currentlyLoadedSplitIndex := 999
-    bossHpHelper := 0
-
-    GUIupdate()
-
-    txtImageName.Value := ""
-    picCurrentSplit.Visible := false
-    txtTimer.Value := ""
-
-    chkStartFirst.Visible := true
-    txtStartFirstTitle.Visible := true
-
-    updateCorrectStats()
-}
-
-SkipSplit(*) {
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, hotKeySettingsArray
-    skipBtnStr := (hotKeySettingsArray.Has(3)) ? hotKeySettingsArray[3] : ""
-
-    if (skipBtnStr != "") {
-        Send("{" skipBtnStr "}")
-    }
-
-    breakLoop := 1
-    breakLoopLF := 1
-    currentlyLoadedSplitIndex += 1
-    GUIupdate()
-}
-
-SkipOnlyAutoSplitter(*) {
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex
-    breakLoop := 1
-    breakLoopLF := 1
-    currentlyLoadedSplitIndex += 1
-    GUIupdate()
-}
-
-UndoSplit(*) {
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, hotKeySettingsArray
-    undoBtnStr := (hotKeySettingsArray.Has(4)) ? hotKeySettingsArray[4] : ""
-
-    if (undoBtnStr != "") {
-        Send("{" undoBtnStr "}")
-    }
-
-    breakLoop := 1
-    breakLoopLF := 1
-    currentlyLoadedSplitIndex -= 1
-    GUIupdate()
-}
-
-UndoOnlyAutoSplitter(*) {
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex
-    breakLoop := 1
-    breakLoopLF := 1
-    currentlyLoadedSplitIndex -= 1
-    GUIupdate()
+    WriteLog("GUIupdate prev:" hPrev " curr:" hCurr " next:" hNext)
 }
 
 ; ===================================================
