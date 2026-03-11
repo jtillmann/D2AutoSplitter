@@ -85,6 +85,8 @@ global BlackCorrectForGui := 0
 global DPI_Ratio := A_ScreenDPI / 96
 global StartOnFirstInput := 0
 global isWaitingForFirstInput := false
+global spinnerChars := ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+global spinnerIndex := 1
 
 ; ===================================================
 ; Globale GUI-Objekte (Vorbereitung für v2 Scope)
@@ -221,7 +223,9 @@ MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", OnUndo
 
 chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24", "") ; vStartOnFirstInput
 txtStartFirstTitle := MainGui.Add("Text", "x510 y230 w150 h20 +0x200", "Start waits for First Input")
-global txtWaitingFirstInput := MainGui.Add("Text", "x10 y55 w300 h20 cRed Hidden", "Waiting for First Input...")
+global txtWaitingFirstInput := MainGui.Add("Text", "x490 y188 w210 h20 cWhite Center Hidden",
+    "Waiting for First Input")
+global txtSpinner := MainGui.Add("Text", "x665 y188 w25 h20 cWhite Hidden", "")
 
 MainGui.SetFont("s7 cCCCCCC", "Segoe UI")
 MainGui.Add("Text", "x325 y70 w150 h15", "Previous Split")
@@ -442,6 +446,9 @@ Start(*) {
     ; Controls verstecken/zeigen
     chkStartFirst.Visible := false
     txtStartFirstTitle.Visible := false
+    txtWaitingFirstInput.Visible := false
+    txtSpinner.Visible := false
+    SetTimer(updateSpinner, 0)
 
     breakLoop := 0
     nLoops := 0
@@ -572,7 +579,10 @@ OnStartButtonClick(*) {
         ; GUI umschalten
         btnStart.Visible := false
         chkStartFirst.Visible := false
+        txtStartFirstTitle.Visible := false
         txtWaitingFirstInput.Visible := true
+        txtSpinner.Visible := true
+        SetTimer(updateSpinner, 100)
 
         return ; WICHTIG: Hier brechen wir ab! Der echte Start passiert noch nicht.
     }
@@ -646,8 +656,11 @@ Reset() {
     if (isWaitingForFirstInput) {
         isWaitingForFirstInput := false
         txtWaitingFirstInput.Visible := false
+        txtSpinner.Visible := false
+        SetTimer(updateSpinner, 0)
         btnStart.Visible := true
         chkStartFirst.Visible := true
+        txtStartFirstTitle.Visible := true
     }
 
     global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, bossHpHelper
@@ -664,6 +677,9 @@ Reset() {
 
     chkStartFirst.Visible := true
     txtStartFirstTitle.Visible := true
+    txtWaitingFirstInput.Visible := false
+    txtSpinner.Visible := false
+    SetTimer(updateSpinner, 0)
 
     updateCorrectStats()
 }
@@ -707,6 +723,14 @@ lookingFor(funcName, thresh, isDoubleCheck, imgInfo, pArray) {
             break
         Sleep(10)
     }
+}
+
+updateSpinner() {
+    global spinnerIndex, spinnerChars, txtSpinner
+    txtSpinner.Value := spinnerChars[spinnerIndex]
+    spinnerIndex += 1
+    if (spinnerIndex > spinnerChars.Length)
+        spinnerIndex := 1
 }
 
 countLoops() {
