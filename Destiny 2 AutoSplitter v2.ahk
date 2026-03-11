@@ -208,10 +208,12 @@ MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 btnStart := MainGui.Add("Button", "x490 y180 w210 h40", "Start")
 btnStart.OnEvent("Click", OnStartButtonClick)
 
-btnReset := MainGui.Add("Button", "x490 y130 w210 h40", "Reset")
+btnReset := MainGui.Add("Button", "x490 y130 w210 h40 +Disabled", "Reset")
 btnReset.OnEvent("Click", OnResetButtonClick)
-MainGui.Add("Button", "x600 y80 w100 h40", "Next >").OnEvent("Click", OnSkipButtonClick)
-MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", OnUndoButtonClick)
+btnNext := MainGui.Add("Button", "x600 y80 w100 h40 +Disabled", "Next >")
+btnNext.OnEvent("Click", OnSkipButtonClick)
+btnPrev := MainGui.Add("Button", "x490 y80 w100 h40 +Disabled", "< Previous")
+btnPrev.OnEvent("Click", OnUndoButtonClick)
 
 chkVal := settings["WaitFirstInput"]
 chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24 Checked" chkVal, "") ; vStartOnFirstInput
@@ -253,11 +255,6 @@ btnStart.Focus()
 if (settings["LastSplitFile"] != "" && FileExist(settings["LastSplitFile"])) {
     LoadSplitsFile(settings["LastSplitFile"])
 }
-
-; ===================================================
-; Show main GUI & Hotkeys
-; ===================================================
-MainGui.Show("w720 h450")
 
 ; Hotkeys for game inputs (w, a, s, d etc.)
 ; These call the function 'OnFirstInputKeyPressed'
@@ -335,6 +332,12 @@ Start(*) {
     GUIupdate()
 
     ; Hide/show controls
+    btnStart.Visible := false
+    btnReset.Enabled := true
+    btnReset.Focus()
+    btnNext.Enabled := true
+    btnPrev.Enabled := true
+    
     chkStartFirst.Visible := false
     txtStartFirstTitle.Visible := false
     txtWaitingFirstInput.Visible := false
@@ -465,10 +468,10 @@ OnStartButtonClick(*) {
     isWaitingForFirstInput := true
     if (chkStartFirst.Value == 1) {
 
-        btnReset.focus()
-
         ; Toggle GUI
         btnStart.Visible := false
+        btnReset.Enabled := true
+        btnReset.Focus()
         chkStartFirst.Visible := false
         txtStartFirstTitle.Visible := false
         txtWaitingFirstInput.Visible := true
@@ -550,6 +553,8 @@ Reset() {
         txtSpinner.Visible := false
         SetTimer(updateSpinner, 0)
         btnStart.Visible := true
+        btnStart.Enabled := true
+        btnStart.Focus()
         chkStartFirst.Visible := true
         txtStartFirstTitle.Visible := true
     }
@@ -559,6 +564,13 @@ Reset() {
     breakLoopLF := 1
     currentlyLoadedSplitIndex := 999
     bossHpHelper := 0
+
+    btnStart.Visible := true
+    btnStart.Enabled := true
+    btnStart.Focus()
+    btnReset.Enabled := false
+    btnNext.Enabled := false
+    btnPrev.Enabled := false
 
     GUIupdate()
 
