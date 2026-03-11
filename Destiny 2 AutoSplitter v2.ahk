@@ -37,31 +37,37 @@ if !DirExist(A_ScriptDir "\Split_Images") {
     FileAppend("0x000000&0x000000&0|0|1|1", A_ScriptDir "\Split_Images\image_info.txt")
 }
 
-global settingsArray := []
+global settingsFile := A_ScriptDir "\Dependencies\settings.ini"
+global legacySettingsFile := A_ScriptDir "\Dependencies\settings.txt"
+global settings := Map()
 
-try {
-    hotkeySettingsString := FileRead(A_ScriptDir "\Dependencies\settings.txt")
-} catch {
-    hotkeySettingsString := ""
+; --- Migration from legacy txt to ini ---
+if (FileExist(legacySettingsFile) && !FileExist(settingsFile)) {
+    try {
+        legacyContent := FileRead(legacySettingsFile)
+        legacyArray := StrSplit(legacyContent, "&")
+        
+        ; Map legacy indices to named keys
+        IniWrite((legacyArray.Has(1) ? legacyArray[1] : ""), settingsFile, "Hotkeys", "Start")
+        IniWrite((legacyArray.Has(2) ? legacyArray[2] : ""), settingsFile, "Hotkeys", "Reset")
+        IniWrite((legacyArray.Has(3) ? legacyArray[3] : ""), settingsFile, "Hotkeys", "Skip")
+        IniWrite((legacyArray.Has(4) ? legacyArray[4] : ""), settingsFile, "Hotkeys", "Undo")
+        IniWrite((legacyArray.Has(5) ? legacyArray[5] : ""), settingsFile, "Hotkeys", "Capture")
+        IniWrite((legacyArray.Has(6) ? legacyArray[6] : ""), settingsFile, "Paths", "LastSplitFile")
+        IniWrite((legacyArray.Has(7) ? legacyArray[7] : "0"), settingsFile, "Preferences", "WaitFirstInput")
+        
+        FileDelete(legacySettingsFile)
+    }
 }
 
-settingsArray := StrSplit(hotkeySettingsString, "&")
-
-; Ensure array has at least 7 elements for safety
-while (settingsArray.Length < 7) {
-    settingsArray.Push("")
-}
-
-; Dynamic variable assignment (Hotkey1, Hotkey2...) must be handled in v2
-; via an array or a map, as dynamic variable names
-; like 'Hotkey%A_Index%' no longer exist.
-global HotkeysV2 := []
-loop 4 {
-    if settingsArray.Has(A_Index)
-        HotkeysV2.Push(settingsArray[A_Index])
-    else
-        HotkeysV2.Push("")
-}
+; --- Load settings from INI ---
+settings["StartHotkey"] := IniRead(settingsFile, "Hotkeys", "Start", "")
+settings["ResetHotkey"] := IniRead(settingsFile, "Hotkeys", "Reset", "")
+settings["SkipHotkey"] := IniRead(settingsFile, "Hotkeys", "Skip", "")
+settings["UndoHotkey"] := IniRead(settingsFile, "Hotkeys", "Undo", "")
+settings["CaptureHotkey"] := IniRead(settingsFile, "Hotkeys", "Capture", "")
+settings["LastSplitFile"] := IniRead(settingsFile, "Paths", "LastSplitFile", "")
+settings["WaitFirstInput"] := IniRead(settingsFile, "Preferences", "WaitFirstInput", "0")
 
 global SelectedFile := ""
 global currentSplit := ""
@@ -154,26 +160,25 @@ MainGui.Add("GroupBox", "x480 y60 w230 h200")
 MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 
 ; --- Hotkeys and assignments ---
-; In v2 we save the control objects in variables to access them later
-tmpVar1 := (settingsArray.Has(1)) ? settingsArray[1] : ""
+tmpVar1 := settings["StartHotkey"]
 if (tmpVar1 != "") {
     try Hotkey("$" tmpVar1, OnStartButtonClick)
 }
 hkControl1 := MainGui.Add("Hotkey", "x570 y290 w130 h21 vHotKey1", tmpVar1)
 
-tmpVar2 := (settingsArray.Has(2)) ? settingsArray[2] : ""
+tmpVar2 := settings["ResetHotkey"]
 if (tmpVar2 != "") {
     try Hotkey("$" tmpVar2, OnResetKeyPressed)
 }
 hkControl2 := MainGui.Add("Hotkey", "x570 y320 w130 h21 vHotKey2", tmpVar2)
 
-tmpVar3 := (settingsArray.Has(3)) ? settingsArray[3] : ""
+tmpVar3 := settings["SkipHotkey"]
 if (tmpVar3 != "") {
     try Hotkey("$" tmpVar3, OnSkipKeyPress)
 }
 hkControl3 := MainGui.Add("Hotkey", "x570 y380 w130 h21 vHotKey3", tmpVar3)
 
-tmpVar4 := (settingsArray.Has(4)) ? settingsArray[4] : ""
+tmpVar4 := settings["UndoHotkey"]
 if (tmpVar4 != "") {
     try Hotkey("$" tmpVar4, OnUndoKeyPressed)
 }
@@ -208,7 +213,7 @@ btnReset.OnEvent("Click", OnResetButtonClick)
 MainGui.Add("Button", "x600 y80 w100 h40", "Next >").OnEvent("Click", OnSkipButtonClick)
 MainGui.Add("Button", "x490 y80 w100 h40", "< Previous").OnEvent("Click", OnUndoButtonClick)
 
-chkVal := (settingsArray.Has(7)) ? settingsArray[7] : 0
+chkVal := settings["WaitFirstInput"]
 chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24 Checked" chkVal, "") ; vStartOnFirstInput
 chkStartFirst.OnEvent("Click", (*) => SaveSettings())
 txtStartFirstTitle := MainGui.Add("Text", "x510 y230 w150 h20 +0x200", "Start waits for First Input")
@@ -245,8 +250,8 @@ MainGui.Show("w720 h450")
 btnStart.Focus()
 
 ; --- Auto-load last split file ---
-if (settingsArray.Has(6) && settingsArray[6] != "" && FileExist(settingsArray[6])) {
-    LoadSplitsFile(settingsArray[6])
+if (settings["LastSplitFile"] != "" && FileExist(settings["LastSplitFile"])) {
+    LoadSplitsFile(settings["LastSplitFile"])
 }
 
 ; ===================================================
@@ -267,30 +272,31 @@ for key in MovementKeys {
 ; ===================================================
 
 Sethotkeys(*) {
-    global settingsArray
+    global settings
 
-    ; Read values from GUI objects (v2 uses .Value)
-    newHKs := [hkControl1.Value, hkControl2.Value, hkControl3.Value, hkControl4.Value, hkCapture.Value]
+    ; Read values from GUI objects
+    newHKs := Map(
+        "StartHotkey", hkControl1.Value,
+        "ResetHotkey", hkControl2.Value,
+        "SkipHotkey", hkControl3.Value,
+        "UndoHotkey", hkControl4.Value,
+        "CaptureHotkey", hkCapture.Value
+    )
 
-    loop newHKs.Length {
-        idx := A_Index
-        newKey := newHKs[idx]
-        oldKey := (settingsArray.Has(idx)) ? settingsArray[idx] : ""
+    for key, newKey in newHKs {
+        oldKey := settings[key]
 
         if (newKey != "") {
-            ; Deactivate old hotkey, if present
             if (oldKey != "") {
                 try Hotkey("$" oldKey, "Off")
             }
 
-            ; Set new hotkey
-            settingsArray[idx] := newKey
+            settings[key] := newKey
 
-            ; Assign function based on index
-            callback := (idx = 1) ? OnStartKeyPressed :
-                (idx = 2) ? OnResetKeyPressed :
-                    (idx = 3) ? OnSkipKeyPress :
-                        (idx = 4) ? OnUndoKeyPressed : Capture
+            callback := (key = "StartHotkey") ? OnStartKeyPressed :
+                (key = "ResetHotkey") ? OnResetKeyPressed :
+                    (key = "SkipHotkey") ? OnSkipKeyPress :
+                        (key = "UndoHotkey") ? OnUndoKeyPressed : Capture
 
             try Hotkey("$" newKey, callback)
         }
@@ -300,18 +306,17 @@ Sethotkeys(*) {
 }
 
 SaveSettings() {
-    global settingsArray, chkStartFirst
-    ; Update checkbox value in array
-    settingsArray[7] := chkStartFirst.Value
+    global settings, chkStartFirst, settingsFile
+    
+    settings["WaitFirstInput"] := chkStartFirst.Value
 
-    ; Assemble string for file
-    settingsString := ""
-    for k, v in settingsArray {
-        settingsString .= (k = 1 ? "" : "&") . v
-    }
-
-    try FileDelete(A_ScriptDir "\Dependencies\settings.txt")
-    FileAppend(settingsString, A_ScriptDir "\Dependencies\settings.txt")
+    IniWrite(settings["StartHotkey"], settingsFile, "Hotkeys", "Start")
+    IniWrite(settings["ResetHotkey"], settingsFile, "Hotkeys", "Reset")
+    IniWrite(settings["SkipHotkey"], settingsFile, "Hotkeys", "Skip")
+    IniWrite(settings["UndoHotkey"], settingsFile, "Hotkeys", "Undo")
+    IniWrite(settings["CaptureHotkey"], settingsFile, "Hotkeys", "Capture")
+    IniWrite(settings["LastSplitFile"], settingsFile, "Paths", "LastSplitFile")
+    IniWrite(settings["WaitFirstInput"], settingsFile, "Preferences", "WaitFirstInput")
 }
 
 ; ===================================================
@@ -343,8 +348,8 @@ Start(*) {
     SetTimer(countLoops, 1000)
 
     ; Deactivate hotkey during run
-    if (settingsArray.Has(1) && settingsArray[1] != "") {
-        try Hotkey("$" settingsArray[1], "Off")
+    if (settings["StartHotkey"] != "") {
+        try Hotkey("$" settings["StartHotkey"], "Off")
     }
 
     loop {
@@ -421,15 +426,15 @@ Start(*) {
         }
     }
 
-    if (settingsArray.Has(1) && settingsArray[1] != "") {
-        try Hotkey("$" settingsArray[1], "On")
+    if (settings["StartHotkey"] != "") {
+        try Hotkey("$" settings["StartHotkey"], "On")
     }
 
     OnResetButtonClick()
 }
 
 OnFirstInputKeyPressed(*) {
-    global currentlyLoadedSplitIndex, settingsArray, isWaitingForFirstInput
+    global currentlyLoadedSplitIndex, settings, isWaitingForFirstInput
 
     ; Query active window (v2 syntax)
     activeWindow := WinGetTitle("A")
@@ -439,7 +444,7 @@ OnFirstInputKeyPressed(*) {
     if (isWaitingForFirstInput && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
         WriteLog("OnFirstInputKeyPressed! Starting...")
 
-        splitKey := (settingsArray.Has(1)) ? settingsArray[1] : ""
+        splitKey := settings["StartHotkey"]
         if (splitKey != "") {
             Send("{" splitKey "}")
         }
@@ -478,8 +483,8 @@ OnStartButtonClick(*) {
 }
 
 OnStartKeyPressed(*) {
-    global settingsArray
-    splitKey := (settingsArray.Has(1)) ? settingsArray[1] : ""
+    global settings
+    splitKey := settings["StartHotkey"]
 
     WriteLog("OnStartKeyPressed " splitKey)
 
@@ -490,8 +495,8 @@ OnStartKeyPressed(*) {
 }
 
 OnResetKeyPressed(*) {
-    global settingsArray
-    resetBtnStr := (settingsArray.Has(2)) ? settingsArray[2] : ""
+    global settings
+    resetBtnStr := settings["ResetHotkey"]
 
     if (resetBtnStr != "") {
         Send("{" resetBtnStr "}")
@@ -506,8 +511,8 @@ OnResetButtonClick(*) {
 }
 
 OnSkipKeyPress(*) {
-    global settingsArray
-    skipBtnStr := (settingsArray.Has(3)) ? settingsArray[3] : ""
+    global settings
+    skipBtnStr := settings["SkipHotkey"]
 
     if (skipBtnStr != "") {
         Send("{" skipBtnStr "}")
@@ -521,8 +526,8 @@ OnSkipButtonClick(*) {
 }
 
 OnUndoKeyPressed(*) {
-    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, settingsArray
-    undoBtnStr := (settingsArray.Has(4)) ? settingsArray[4] : ""
+    global breakLoop, breakLoopLF, currentlyLoadedSplitIndex, settings
+    undoBtnStr := settings["UndoHotkey"]
 
     if (undoBtnStr != "") {
         Send("{" undoBtnStr "}")
@@ -682,14 +687,14 @@ doLoop() {
 
 handleSplit(pCorrect) {
     global currentlyLoadedSplitIndex, waitingForNextSplit, timerText, breakLoop
-    global currentlyLoadedSplits, settingsArray
+    global currentlyLoadedSplits, settings
 
     ; Get current data
     currentData := StrSplit(currentlyLoadedSplits[currentlyLoadedSplitIndex], ",")
 
     ; If not a dummy split (Index 3 is 0), send split key
     if (currentData.Has(3) && currentData[3] == "0") {
-        splitKey := (settingsArray.Has(1)) ? settingsArray[1] : ""
+        splitKey := settings["StartHotkey"]
         if (splitKey != "")
             Send("{" splitKey "}")
     }
@@ -794,7 +799,7 @@ LoadSplitsFile(path) {
         SelectedFile := path
 
         ; Persist last used split file
-        settingsArray[6] := path
+        settings["LastSplitFile"] := path
         SaveSettings()
 
         ; Update GUI

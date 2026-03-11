@@ -29,7 +29,7 @@ global btnUncapture := ImageMakerGui.Add("Button", "x22 y15 w120 h50 +Hidden", "
 btnUncapture.OnEvent("Click", Uncapture)
 
 ; Hotkey control
-tmpVarHK5 := (settingsArray.Length >= 5) ? settingsArray[5] : ""
+tmpVarHK5 := settings["CaptureHotkey"]
 if (tmpVarHK5 != "") {
     try Hotkey("$" tmpVarHK5, Capture)
 }
