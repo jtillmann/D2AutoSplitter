@@ -524,7 +524,6 @@ Start(*) {
         lookingFor(funcToUse, currentSplitData[4], previousSplitWasBossDeath, activeImageInfo, pixelArray)
 
         if (currentlyLoadedSplitIndex > currentlyLoadedSplits.Length || currentlyLoadedSplitIndex < 1) {
-            WriteLog("Start loop index end")
             break
         }
     }
