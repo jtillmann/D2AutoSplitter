@@ -153,7 +153,7 @@ if FileExist(A_ScriptDir "\backgroundimage.png") {
 }
 
 MainGui.SetFont("s6 cWhite")
-MainGui.Add("Text", "x8 y432 w125 h15 +0x200", "Made By A2TC - Improved By Scope")
+;MainGui.Add("Text", "x10 y432 w125 h15 +0x200", "Made By A2TC - Improved By Scope")
 
 MainGui.SetFont("s9", "Segoe UI")
 MainGui.Add("GroupBox", "x480 y60 w230 h200")
@@ -187,13 +187,19 @@ hkControl4 := MainGui.Add("Hotkey", "x570 y350 w130 h21 vHotKey4", tmpVar4)
 ; --- Buttons and event handlers ---
 MainGui.Add("Button", "x10 y10 w120 h30", "Create New Splits").OnEvent("Click", SaveSplitFileEmpty)
 MainGui.Add("Button", "x140 y10 w100 h30", "Open Splits").OnEvent("Click", LoadSplitsToUse)
-txtLoadedSplits := MainGui.Add("Text", "x250 y12 w150 h23 +0x200", "") ; vNameOfLoadedSplits
+global gbFileBox := MainGui.Add("GroupBox", "x250 y2 w350 h38", "")
+gbFileBox.Visible := false
+txtLoadedSplits := MainGui.Add("Text", "x260 y15 w185 h18 +0x200 +BackgroundTrans", "") ; vNameOfLoadedSplits
+global btnUnload := MainGui.Add("Text", "x580 y15 w15 h15 +Center +BackgroundTrans", "×")
+btnUnload.SetFont("s9 Bold", "Verdana")
+btnUnload.OnEvent("Click", (*) => UnloadSplits())
+btnUnload.Visible := false
 
-btnEditSplits := MainGui.Add("Button", "x450 y10 w100 h30", "Edit Splits")
+btnEditSplits := MainGui.Add("Button", "x610 y10 w100 h30", "Edit Splits")
 btnEditSplits.OnEvent("Click", OpenSplitManager)
 btnEditSplits.Visible := false ; Replaces GuiControl, Hide
 
-MainGui.Add("Button", "x560 y10 w150 h30", "Create Split Image").OnEvent("Click", OpenSplitImageMaker)
+MainGui.Add("Button", "x10 y410 w150 h30", "Create Split Image").OnEvent("Click", OpenSplitImageMaker)
 
 ; --- Status and display ---
 txtTimer := MainGui.Add("Text", "x10 y70 w300 h300 +0x200 +Center +Border", "") ; vtimerText
@@ -205,7 +211,7 @@ MainGui.Add("Text", "x490 y380 w60 h20 +0x200", "Skip Split")
 MainGui.Add("Text", "x490 y350 w60 h20 +0x200", "Undo Split")
 MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 
-btnStart := MainGui.Add("Button", "x490 y180 w210 h40", "Start")
+btnStart := MainGui.Add("Button", "x490 y180 w210 h40 +Disabled", "Start")
 btnStart.OnEvent("Click", OnStartButtonClick)
 
 btnReset := MainGui.Add("Button", "x490 y130 w210 h40 +Disabled", "Reset")
@@ -236,17 +242,17 @@ txtImageName := MainGui.Add("Text", "x325 y185 w150 h25", "") ; vsplitImageNameF
 txtNext := MainGui.Add("Text", "x325 y250 w150 h25", "") ; vNext
 
 MainGui.SetFont("s7 cCCCCCC", "Segoe UI")
-txtLoopCount := MainGui.Add("Text", "x10 y380 w25 h20 +0x200 +Right", "0") ; vloopCount
-MainGui.Add("Text", "x40 y380 w30 h20 +0x200", "FPS")
+txtLoopCount := MainGui.Add("Text", "x10 y375 w25 h20 +0x200 +Right", "0") ; vloopCount
+MainGui.Add("Text", "x40 y375 w30 h20 +0x200", "FPS")
 
-txtMatch := MainGui.Add("Text", "x70 y380 w25 h20 +0x200 +Right", "0") ; vpCorrectForGui
-MainGui.Add("Text", "x97 y380 w40 h20 +0x200", "% Match")
+txtMatch := MainGui.Add("Text", "x70 y375 w25 h20 +0x200 +Right", "0") ; vpCorrectForGui
+MainGui.Add("Text", "x97 y375 w40 h20 +0x200", "% Match")
 
-txtWhite := MainGui.Add("Text", "x150 y380 w25 h20 +0x200 +Right", "0") ; vwCorrectForGui
-MainGui.Add("Text", "x177 y380 w40 h20 +0x200", "% White")
+txtWhite := MainGui.Add("Text", "x150 y375 w25 h20 +0x200 +Right", "0") ; vwCorrectForGui
+MainGui.Add("Text", "x177 y375 w40 h20 +0x200", "% White")
 
-txtBlack := MainGui.Add("Text", "x230 y380 w25 h20 +0x200 +Right", "0") ; vbCorrectForGui
-MainGui.Add("Text", "x257 y380 w70 h20 +0x200", "% Black")
+txtBlack := MainGui.Add("Text", "x230 y375 w25 h20 +0x200 +Right", "0") ; vbCorrectForGui
+MainGui.Add("Text", "x257 y375 w70 h20 +0x200", "% Black")
 
 MainGui.Show("w720 h450")
 btnStart.Focus()
@@ -818,9 +824,49 @@ LoadSplitsFile(path) {
         splitName := RegExReplace(path, ".*\\") ; Extracts filename
         txtLoadedSplits.Value := splitName
         btnEditSplits.Visible := true
+        btnStart.Enabled := true
+        
+        gbFileBox.Visible := true
+        btnUnload.Visible := true
     } catch {
         MsgBox("Error loading file.")
     }
+}
+
+UnloadSplits(*) {
+    global currentlyLoadedSplits, SelectedFile, settings
+    global txtLoadedSplits, btnEditSplits, btnStart, btnReset, btnNext, btnPrev
+    global gbFileBox, btnUnload
+    global txtPrev, txtCurr, txtNext, txtImageName, txtTimer, picCurrentSplit
+
+    currentlyLoadedSplits := []
+    SelectedFile := ""
+    txtLoadedSplits.Value := ""
+    
+    ; Hide UI elements
+    gbFileBox.Visible := false
+    btnUnload.Visible := false
+    btnEditSplits.Visible := false
+    
+    ; Disable control buttons
+    btnStart.Enabled := false
+    btnReset.Enabled := false
+    btnNext.Enabled := false
+    btnPrev.Enabled := false
+    
+    ; Clear persistent setting
+    settings["LastSplitFile"] := ""
+    SaveSettings()
+    
+    ; Reset display fields
+    txtPrev.Value := ""
+    txtCurr.Value := ""
+    txtNext.Value := ""
+    txtImageName.Value := ""
+    txtTimer.Value := ""
+    picCurrentSplit.Visible := false
+    
+    GUIupdate()
 }
 
 ; ===================================================
