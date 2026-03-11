@@ -16,6 +16,8 @@ CoordMode "Pixel", "Screen"
 global WinTitle := "LiveSplit"
 
 WriteLog(text) {
+    if (A_IsCompiled)
+        return
     FileAppend(A_NowUTC ": " text "`n", "logfile.txt")
 }
 
