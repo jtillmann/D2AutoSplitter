@@ -213,7 +213,6 @@ MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 
 btnStart := MainGui.Add("Button", "x490 y180 w210 h40 +Disabled", "Start")
 btnStart.OnEvent("Click", OnStartButtonClick)
-
 btnReset := MainGui.Add("Button", "x490 y130 w210 h40 +Disabled", "Reset")
 btnReset.OnEvent("Click", OnResetButtonClick)
 btnNext := MainGui.Add("Button", "x600 y80 w100 h40 +Disabled", "Next >")
@@ -231,7 +230,7 @@ global txtSpinner := MainGui.Add("Text", "x665 y188 w25 h20 cWhite Hidden", "")
 
 MainGui.SetFont("s7 cCCCCCC", "Segoe UI")
 MainGui.Add("Text", "x325 y70 w150 h15", "Previous Split")
-MainGui.Add("Text", "x325 y130 w150 h15", "Current Split")
+global txtCurrTitle := MainGui.Add("Text", "x325 y130 w150 h15", "Current Split")
 MainGui.Add("Text", "x325 y170 w150 h15", "Current Image")
 MainGui.Add("Text", "x325 y235 w150 h15", "Next Split")
 
@@ -892,6 +891,14 @@ GUIupdate() {
         currentlyLoadedSplitIndex], ",")[1] : ""
     hNext := (currentlyLoadedSplits.Has(currentlyLoadedSplitIndex + 1)) ? StrSplit(currentlyLoadedSplits[
         currentlyLoadedSplitIndex + 1], ",")[1] : ""
+
+    ; Add split number info
+    if (hCurr != "") {
+        totalSplits := currentlyLoadedSplits.Length
+        txtCurrTitle.Value := "Current Split (" currentlyLoadedSplitIndex " / " totalSplits ")"
+    } else {
+        txtCurrTitle.Value := "Current Split"
+    }
 
     ; Update objects
     txtPrev.Value := hPrev
