@@ -162,7 +162,7 @@ MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 ; --- Hotkeys and assignments ---
 tmpVar1 := settings["StartHotkey"]
 if (tmpVar1 != "") {
-    try Hotkey("$" tmpVar1, OnStartButtonClick)
+    try Hotkey("$" tmpVar1, OnStartKeyPressed)
 }
 hkControl1 := MainGui.Add("Hotkey", "x570 y290 w130 h21 vHotKey1", tmpVar1)
 
@@ -453,9 +453,9 @@ OnFirstInputKeyPressed(*) {
     if (isWaitingForFirstInput && currentlyLoadedSplitIndex == 999 && activeWindow == "Destiny 2") {
         WriteLog("OnFirstInputKeyPressed! Starting...")
 
-        splitKey := settings["StartHotkey"]
-        if (splitKey != "") {
-            Send("{" splitKey "}")
+        startKey := settings["StartHotkey"]
+        if (startKey != "") {
+            Send("{" startKey "}")
         }
 
         ; In v2 we replace 'GoSub StartAutoSplitter' with a simple function call
@@ -492,13 +492,18 @@ OnStartButtonClick(*) {
 }
 
 OnStartKeyPressed(*) {
-    global settings
-    splitKey := settings["StartHotkey"]
+    global settings, chkStartFirst
+    startKey := settings["StartHotkey"]
 
-    WriteLog("OnStartKeyPressed " splitKey)
+    WriteLog("OnStartKeyPressed " startKey)
 
-    if (splitKey != "") {
-        Send("{" splitKey "}")
+    if (chkStartFirst.Value == 1) {
+        OnStartButtonClick()
+        return ; This prevents the key press from reaching other apps, LiveSplit in particular
+    }
+
+    if (startKey != "") {
+        Send("{" startKey "}")
     }
     Start()
 }
@@ -712,9 +717,9 @@ handleSplit(pCorrect) {
 
     ; If not a dummy split (Index 3 is 0), send split key
     if (currentData.Has(3) && currentData[3] == "0") {
-        splitKey := settings["StartHotkey"]
-        if (splitKey != "")
-            Send("{" splitKey "}")
+        startKey := settings["StartHotkey"]
+        if (startKey != "")
+            Send("{" startKey "}")
     }
 
     ; Calculate delay (Index 5 is delay in seconds)
