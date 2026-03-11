@@ -678,7 +678,6 @@ SkipSplit() {
     breakLoop := 1
     breakLoopLF := 1
     currentlyLoadedSplitIndex += 1
-    MsgBox("Split " currentlyLoadedSplitIndex " übersprungen.")
     GUIupdate()
 }
 
@@ -732,8 +731,6 @@ updateCorrectStats() {
 }
 
 doLoop() {
-    WriteLog("doLoop" " breakLoop: " breakLoop " breakLoopLF: " breakLoopLF " findFunc: " findFunc " threshold: " threshold
-    )
     global breakLoop, breakLoopLF, bossHpHelper, findFunc, threshold, doubleCheck
     global currentSplitImageInfo
 
