@@ -278,3 +278,27 @@ findBossThere(imgInfo) {
     Gdip_DisposeImage(pBitmap4) ; Fix: was originally pBitmap
     return pCorrect
 }
+
+LoadPixelatedImage(filePath, targetW, targetH) {
+    pBitmap := Gdip_CreateBitmapFromFile(filePath)
+    if (!pBitmap)
+        return 0
+
+    Gdip_GetImageDimensions(pBitmap, &origW, &origH)
+
+    pBitmapScaled := Gdip_CreateBitmap(targetW, targetH)
+    pGraphics := Gdip_GraphicsFromImage(pBitmapScaled)
+
+    Gdip_SetInterpolationMode(pGraphics, 5)
+    DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", pGraphics, "Int", 2)
+
+    Gdip_DrawImage(pGraphics, pBitmap, 0, 0, targetW, targetH, 0, 0, origW, origH)
+
+    hBitmap := Gdip_CreateHBITMAPFromBitmap(pBitmapScaled)
+
+    Gdip_DeleteGraphics(pGraphics)
+    Gdip_DisposeImage(pBitmap)
+    Gdip_DisposeImage(pBitmapScaled)
+
+    return hBitmap
+}

@@ -375,23 +375,20 @@ Start(*) {
 
         currentSplitImageName := currentSplitData[2]
 
-        ; 1. FIX: Update image preview
         imgFilePath := A_ScriptDir "\Split_Images\" currentSplitImageName ".png"
 
         if FileExist(imgFilePath) {
-            ; a) Load image normally (WITHOUT the *w *h string)
-            picCurrentSplit.Value := imgFilePath
+            hBmp := LoadPixelatedImage(imgFilePath, 300, 300)
 
-            ; b) Lock the control to original values immediately
-            ; (Replace 200 and 150 here again with your real values from section 5!)
-            picCurrentSplit.Move(, , 300, 300)
-
-            ; c) Make visible again (if it was previously hidden by Boss Death)
-            picCurrentSplit.Visible := true
+            if (hBmp) {
+                picCurrentSplit.Value := "HBITMAP:*" hBmp
+                picCurrentSplit.Move(, , 300, 300)
+                picCurrentSplit.Visible := true
+            }
         } else {
-            ; Hide for Boss Death etc.
             picCurrentSplit.Visible := false
         }
+
         txtImageName.Value := currentSplitImageName
 
         ; 2. FIX: Use global variable imageDataArray so boss functions find coordinates!
