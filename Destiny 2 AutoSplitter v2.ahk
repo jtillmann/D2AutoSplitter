@@ -234,9 +234,13 @@ btnPrev := MainGui.Add("Button", "x490 y80 w100 h40 +Disabled", "< Previous")
 btnPrev.OnEvent("Click", OnUndoButtonClick)
 
 chkVal := settings["WaitFirstInput"]
-chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24 Checked" chkVal, "") ; vStartOnFirstInput
+chkStartFirst := MainGui.Add("CheckBox", "x490 y227 w17 h24 Checked" chkVal, "Wait For First Input After Start") ; vStartOnFirstInput
 chkStartFirst.OnEvent("Click", (*) => SaveSettings())
 txtStartFirstTitle := MainGui.Add("Text", "x510 y230 w170 h20 +0x200", "Wait For First Input After Start")
+txtStartFirstTitle.OnEvent("Click", ToggleStartFirst)
+ToggleStartFirst(*) {
+    chkStartFirst.Value := !chkStartFirst.Value
+}
 global txtWaitingFirstInput := MainGui.Add("Text", "x490 y188 w210 h20 cWhite Center Hidden",
     "Waiting for First Input")
 global txtSpinner := MainGui.Add("Text", "x665 y188 w25 h20 cWhite Hidden", "")
