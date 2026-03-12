@@ -8,6 +8,7 @@ SetControlDelay -1
 #Include %A_ScriptDir%/Gdip_all_v2.ahk
 #Include %A_ScriptDir%/Modules/Helpers.ahk
 #Include %A_ScriptDir%/Modules/SplitManager.ahk
+#Include %A_ScriptDir%/Modules/SettingsWindow.ahk
 
 SetWorkingDir A_ScriptDir
 CoordMode "Mouse", "Screen"
@@ -68,6 +69,23 @@ settings["UndoHotkey"] := IniRead(settingsFile, "Hotkeys", "Undo", "")
 settings["CaptureHotkey"] := IniRead(settingsFile, "Hotkeys", "Capture", "")
 settings["LastSplitFile"] := IniRead(settingsFile, "Paths", "LastSplitFile", "")
 settings["WaitFirstInput"] := IniRead(settingsFile, "Preferences", "WaitFirstInput", "0")
+
+global FirstInputKeys := [
+    ["w", "W"],
+    ["a", "A"],
+    ["s", "S"],
+    ["d", "D"],
+    ["Space", "Space"],
+    ["3", "Heavy Weapon (3)"],
+    ["WheelDown", "Mouse Wheel Down"],
+    ["WheelUp", "Mouse Wheel Up"],
+    ["e", "Interact (e)"]
+]
+
+for item in FirstInputKeys {
+    key := item[1]
+    settings["FI_" key] := IniRead(settingsFile, "FirstInput", key, "1")
+}
 
 global SelectedFile := ""
 global currentSplit := ""
@@ -153,36 +171,36 @@ if FileExist(A_ScriptDir "\backgroundimage.png") {
 }
 
 MainGui.SetFont("s6 cWhite")
-;MainGui.Add("Text", "x10 y432 w125 h15 +0x200", "Made By A2TC - Improved By Scope")
+MainGui.Add("Text", "x10 y400 w135 h15 +0x200", "Made By A2TC - Improved By Scope")
 
 MainGui.SetFont("s9", "Segoe UI")
 MainGui.Add("GroupBox", "x480 y60 w230 h200")
-MainGui.Add("GroupBox", "x480 y270 w230 h170", "Hotkeys")
 
 ; --- Hotkeys and assignments ---
 tmpVar1 := settings["StartHotkey"]
 if (tmpVar1 != "") {
     try Hotkey("$" tmpVar1, OnStartKeyPressed)
 }
-hkControl1 := MainGui.Add("Hotkey", "x570 y290 w130 h21 vHotKey1", tmpVar1)
 
 tmpVar2 := settings["ResetHotkey"]
 if (tmpVar2 != "") {
     try Hotkey("$" tmpVar2, OnResetKeyPressed)
 }
-hkControl2 := MainGui.Add("Hotkey", "x570 y320 w130 h21 vHotKey2", tmpVar2)
 
 tmpVar3 := settings["SkipHotkey"]
 if (tmpVar3 != "") {
     try Hotkey("$" tmpVar3, OnSkipKeyPress)
 }
-hkControl3 := MainGui.Add("Hotkey", "x570 y380 w130 h21 vHotKey3", tmpVar3)
 
 tmpVar4 := settings["UndoHotkey"]
 if (tmpVar4 != "") {
     try Hotkey("$" tmpVar4, OnUndoKeyPressed)
 }
-hkControl4 := MainGui.Add("Hotkey", "x570 y350 w130 h21 vHotKey4", tmpVar4)
+
+tmpVar5 := settings["CaptureHotkey"]
+if (tmpVar5 != "") {
+    try Hotkey("$" tmpVar5, Capture)
+}
 
 ; --- Buttons and event handlers ---
 MainGui.Add("Button", "x10 y10 w120 h30", "Create New Splits").OnEvent("Click", SaveSplitFileEmpty)
@@ -199,17 +217,12 @@ btnEditSplits := MainGui.Add("Button", "x610 y10 w100 h30", "Edit Splits")
 btnEditSplits.OnEvent("Click", OpenSplitManager)
 btnEditSplits.Visible := false ; Replaces GuiControl, Hide
 
-MainGui.Add("Button", "x10 y410 w150 h30", "Create Split Image").OnEvent("Click", OpenSplitImageMaker)
+MainGui.Add("Button", "x490 y370 w210 h30", "Settings").OnEvent("Click", (*) => OpenSettingsWindow())
+MainGui.Add("Button", "x490 y330 w210 h30", "Create Split Image").OnEvent("Click", OpenSplitImageMaker)
 
 ; --- Status and display ---
 txtTimer := MainGui.Add("Text", "x10 y70 w300 h300 +0x200 +Center +Border", "") ; vtimerText
 picCurrentSplit := MainGui.Add("Picture", "x10 y70 w300 h300 +Border", "") ; vCurrentSplitImage
-
-MainGui.Add("Text", "x490 y290 w60 h20 +0x200", "Start/Split")
-MainGui.Add("Text", "x490 y320 w60 h20 +0x200", "Reset")
-MainGui.Add("Text", "x490 y380 w60 h20 +0x200", "Skip Split")
-MainGui.Add("Text", "x490 y350 w60 h20 +0x200", "Undo Split")
-MainGui.Add("Button", "x640 y410 w60 h20", "Set").OnEvent("Click", Sethotkeys)
 
 btnStart := MainGui.Add("Button", "x490 y180 w210 h40 +Disabled", "Start")
 btnStart.OnEvent("Click", OnStartButtonClick)
@@ -253,7 +266,7 @@ MainGui.Add("Text", "x177 y375 w40 h20 +0x200", "% White")
 txtBlack := MainGui.Add("Text", "x230 y375 w25 h20 +0x200 +Right", "0") ; vbCorrectForGui
 MainGui.Add("Text", "x257 y375 w70 h20 +0x200", "% Black")
 
-MainGui.Show("w720 h450")
+MainGui.Show("w720 h420")
 btnStart.Focus()
 
 ; --- Auto-load last split file ---
@@ -263,52 +276,20 @@ if (settings["LastSplitFile"] != "" && FileExist(settings["LastSplitFile"])) {
 
 ; Hotkeys for game inputs (w, a, s, d etc.)
 ; These call the function 'OnFirstInputKeyPressed'
-MovementKeys := ["w", "a", "s", "d", "Space", "3", "WheelDown", "WheelUp", "e"]
-for key in MovementKeys {
-    Hotkey("~$" . key, (*) => OnFirstInputKeyPressed())
-    Hotkey("~+$" . key, (*) => OnFirstInputKeyPressed()) ; Also for Shift+Key
-}
-
-; ===================================================
-; Save and set hotkey settings
-; ===================================================
-
-Sethotkeys(*) {
-    global settings
-
-    ; Read values from GUI objects
-    newHKs := Map(
-        "StartHotkey", hkControl1.Value,
-        "ResetHotkey", hkControl2.Value,
-        "SkipHotkey", hkControl3.Value,
-        "UndoHotkey", hkControl4.Value,
-        "CaptureHotkey", hkCapture.Value
-    )
-
-    for key, newKey in newHKs {
-        oldKey := settings[key]
-
-        if (newKey != "") {
-            if (oldKey != "") {
-                try Hotkey("$" oldKey, "Off")
-            }
-
-            settings[key] := newKey
-
-            callback := (key = "StartHotkey") ? OnStartKeyPressed :
-                (key = "ResetHotkey") ? OnResetKeyPressed :
-                    (key = "SkipHotkey") ? OnSkipKeyPress :
-                        (key = "UndoHotkey") ? OnUndoKeyPressed : Capture
-
-            try Hotkey("$" newKey, callback)
-        }
+for item in FirstInputKeys {
+    key := item[1]
+    if (settings["FI_" key] == "1") {
+        try Hotkey("~$" . key, (*) => OnFirstInputKeyPressed())
+        try Hotkey("~+$" . key, (*) => OnFirstInputKeyPressed()) ; Also for Shift+Key
     }
-
-    SaveSettings()
 }
+
+; ===================================================
+; Save settings
+; ===================================================
 
 SaveSettings() {
-    global settings, chkStartFirst, settingsFile
+    global settings, chkStartFirst, settingsFile, FirstInputKeys
 
     settings["WaitFirstInput"] := chkStartFirst.Value
 
@@ -319,6 +300,11 @@ SaveSettings() {
     IniWrite(settings["CaptureHotkey"], settingsFile, "Hotkeys", "Capture")
     IniWrite(settings["LastSplitFile"], settingsFile, "Paths", "LastSplitFile")
     IniWrite(settings["WaitFirstInput"], settingsFile, "Preferences", "WaitFirstInput")
+
+    for item in FirstInputKeys {
+        key := item[1]
+        IniWrite(settings["FI_" key], settingsFile, "FirstInput", key)
+    }
 }
 
 ; ===================================================

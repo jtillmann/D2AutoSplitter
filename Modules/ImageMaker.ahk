@@ -28,14 +28,6 @@ btnCapture.OnEvent("Click", Capture)
 global btnUncapture := ImageMakerGui.Add("Button", "x22 y15 w120 h50 +Hidden", "Unfreeze Screen")
 btnUncapture.OnEvent("Click", Uncapture)
 
-; Hotkey control
-tmpVarHK5 := settings["CaptureHotkey"]
-if (tmpVarHK5 != "") {
-    try Hotkey("$" tmpVarHK5, Capture)
-}
-global hkCapture := ImageMakerGui.Add("Hotkey", "x27 y70 w110 h20", tmpVarHK5)
-ImageMakerGui.Add("Button", "x52 y92 w60 h23", "Set").OnEvent("Click", Sethotkeys)
-
 ImageMakerGui.Add("Button", "x22 y115 w120 h50", "Select Area").OnEvent("Click", Picture)
 ImageMakerGui.Add("Button", "x22 y165 w120 h50", "Save Current Image").OnEvent("Click", Save)
 ImageMakerGui.Add("Button", "x22 y480 w120 h50", "Open Boss HP Bar Color Finder").OnEvent("Click", OpenHPFinder)
