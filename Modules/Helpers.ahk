@@ -31,6 +31,9 @@ convertToHex(arr) {
 }
 
 convertToRGB(colorStr) {
+    if (!colorStr || StrLen(colorStr) < 8) {
+        colorStr := "0x000000"
+    }
     red := "0x" SubStr(colorStr, 3, 2)
     green := "0x" SubStr(colorStr, 5, 2)
     blue := "0x" SubStr(colorStr, 7, 2)
