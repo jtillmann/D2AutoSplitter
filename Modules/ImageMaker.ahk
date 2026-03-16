@@ -8,6 +8,23 @@ global BnWImage := A_ScriptDir "\Dependencies\BnW.png"
 global scshot := A_ScriptDir "\Dependencies\fullScreenshot.png"
 global tmpImage := A_ScriptDir "\Dependencies\tmp.png"
 
+pToken := Gdip_Startup()
+pToken1 := Gdip_Startup()
+pBitmap := Gdip_BitmapFromScreen("0|0|1|1")
+Gdip_SaveBitmapToFile(pBitmap, realImage)
+Gdip_SaveBitmapToFile(pBitmap, BnWImage)
+Gdip_DisposeImage(pBitmap)
+Gdip_Shutdown(pToken)
+
+pGlobalBitmap := Gdip_CreateBitmap(149, 129)
+setBitmapColor(pGlobalBitmap, HPBarDarkColor)
+Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
+Gdip_DisposeImage(pGlobalBitmap)
+pGlobalBitmap := Gdip_CreateBitmap(149, 129)
+setBitmapColor(pGlobalBitmap, HPBarLightColor)
+Gdip_SaveBitmapToFile(pGlobalBitmap, tmpImage)
+Gdip_DisposeImage(pGlobalBitmap)
+
 global x1 := 0, y1 := 0, x2 := 0, y2 := 0
 global w := 0, h := 0, total := 0
 global imageCoords := "0|0|1|1"
