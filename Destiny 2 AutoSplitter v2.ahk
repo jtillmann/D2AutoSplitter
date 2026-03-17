@@ -293,7 +293,7 @@ for item in FirstInputKeys {
 SaveSettings() {
     global settings, chkStartFirst, settingsFile, FirstInputKeys
 
-    settings["WaitFirstInput"] := chkStartFirst.Value
+    settings["WaitFirstInput"] := chkStartFirst.Value || "0"
 
     IniWrite(settings["StartHotkey"], settingsFile, "Hotkeys", "Start")
     IniWrite(settings["ResetHotkey"], settingsFile, "Hotkeys", "Reset")
