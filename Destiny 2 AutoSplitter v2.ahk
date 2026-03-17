@@ -385,6 +385,10 @@ Start(*) {
 
         activeImageInfo := ""
         for i, infoLine in imageDataArray {
+            ; We skip the Boss HP bar colors
+            if (i == 1 || i == 2) {
+                continue
+            }
             tempInfo := StrSplit(infoLine, ",")
             if (tempInfo[1] == currentSplitImageName) {
                 activeImageInfo := tempInfo
