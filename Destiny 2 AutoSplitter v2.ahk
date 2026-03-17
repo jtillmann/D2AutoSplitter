@@ -56,8 +56,6 @@ if (FileExist(legacySettingsFile) && !FileExist(settingsFile)) {
         IniWrite((legacyArray.Has(5) ? legacyArray[5] : ""), settingsFile, "Hotkeys", "Capture")
         IniWrite((legacyArray.Has(6) ? legacyArray[6] : ""), settingsFile, "Paths", "LastSplitFile")
         IniWrite((legacyArray.Has(7) ? legacyArray[7] : "0"), settingsFile, "Preferences", "WaitFirstInput")
-
-        FileDelete(legacySettingsFile)
     }
 }
 
