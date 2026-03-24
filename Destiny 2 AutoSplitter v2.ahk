@@ -434,6 +434,10 @@ OnFirstInputKeyPressed(*) {
     global currentlyLoadedSplitIndex, settings, isWaitingForFirstInput
 
     ; Query active window (v2 syntax)
+    ; We check if an active window exists first to avoid "Target window not found" error
+    if !WinExist("A")
+        return
+
     activeWindow := WinGetTitle("A")
 
     WriteLog("OnFirstInputKeyPressed " currentlyLoadedSplitIndex " " isWaitingForFirstInput " " activeWindow)
